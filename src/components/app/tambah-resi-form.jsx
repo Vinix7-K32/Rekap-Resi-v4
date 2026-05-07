@@ -20,7 +20,7 @@ import { MdErrorOutline, MdRefresh, MdSaveAlt } from 'react-icons/md';
 
 const MARKETPLACES = ['Shopee', 'Tokopedia', 'Lazada', 'Bukalapak', 'TikTok Shop'];
 const KURIR = ['JNE', 'J&T', 'SiCepat', 'Anteraja', 'Pos Indonesia'];
-const STATUSES = ['Menunggu', 'Dalam Proses', 'Diterima', 'Selesai'];
+const FIXED_STATUS = 'Diterima';
 
 export default function TambahResiForm() {
   const [submitting, setSubmitting] = useState(false);
@@ -29,7 +29,6 @@ export default function TambahResiForm() {
     nomor_resi: '',
     marketplace: '',
     kurir: '',
-    status: 'Menunggu',
     tanggal: new Date().toISOString().split('T')[0],
     nama_penerima: '',
   });
@@ -47,7 +46,8 @@ export default function TambahResiForm() {
   const onSubmit = async (data) => {
     setSubmitting(true);
     try {
-      const { error } = await addResi(data);
+      const payload = { ...data, status: FIXED_STATUS };
+      const { error } = await addResi(payload);
       if (error) {
         toast.error('Gagal menyimpan resi', {
           description: error.message,
@@ -55,7 +55,7 @@ export default function TambahResiForm() {
       } else {
         reset(getDefaultValues());
         toast.success('Resi berhasil disimpan!', {
-          description: `Nomor resi ${data.nomor_resi} telah ditambahkan.`,
+          description: `Nomor resi ${payload.nomor_resi} telah ditambahkan.`,
         });
       }
     } catch (err) {
@@ -186,24 +186,12 @@ export default function TambahResiForm() {
           {/* Status */}
           <div className="space-y-1.5">
             <Label className="text-slate-700 font-semibold text-[0.85rem]">Status</Label>
-            <Controller
-              name="status"
-              control={control}
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className="w-full h-10 rounded-xl px-4 text-[0.9rem] bg-[#F8FAFC] border-slate-200">
-                    <SelectValue placeholder="Pilih Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUSES.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+            <Input
+              value={FIXED_STATUS}
+              readOnly
+              className="h-10 rounded-xl border border-slate-200 bg-slate-50 px-4 text-[0.9rem] text-slate-600"
             />
+            <p className="text-[0.75rem] text-slate-400">Status otomatis dari input manual.</p>
           </div>
 
           {/* Tanggal */}

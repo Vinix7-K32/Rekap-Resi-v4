@@ -298,9 +298,9 @@ export default function LandingHero() {
                 />
                 <MockResiRow
                   no="JP000000000003"
-                  status="Dalam Proses"
-                  statusClass="text-amber-500"
-                  statusBgClass="bg-amber-500/15"
+                  status="Menunggu"
+                  statusClass="text-blue-500"
+                  statusBgClass="bg-blue-500/15"
                   mp="Tokopedia"
                 />
                 <MockResiRow

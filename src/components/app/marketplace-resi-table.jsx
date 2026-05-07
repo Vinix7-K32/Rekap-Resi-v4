@@ -2,9 +2,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { format, parseISO } from 'date-fns';
 import {
   Search,
-  ChevronUp,
-  ChevronDown,
-  ChevronsUpDown,
   Trash2,
   ChevronLeft,
   ChevronRight,
@@ -29,18 +26,6 @@ const STATUS_STYLES = {
   },
 };
 
-function SortIcon({ columnKey, sortKey, sortDir }) {
-  if (columnKey !== sortKey) {
-    return <ChevronsUpDown size={13} className="text-slate-300" />;
-  }
-
-  return sortDir === 'asc' ? (
-    <ChevronUp size={13} className="text-blue-500" />
-  ) : (
-    <ChevronDown size={13} className="text-blue-500" />
-  );
-}
-
 function StatusBadge({ status }) {
   const styles = STATUS_STYLES[status] ?? STATUS_STYLES.Menunggu;
 
@@ -63,7 +48,7 @@ function formatTanggal(value) {
   return format(parsed, 'dd MMM yyyy');
 }
 
-export default function DaftarResiTable({
+export default function MarketplaceResiTable({
   search,
   onSearchChange,
   onSearchClear,
@@ -71,18 +56,10 @@ export default function DaftarResiTable({
   onToggleFilters,
   statusFilter,
   marketplaceFilter,
-  dateFrom,
-  dateTo,
   onStatusFilterChange,
   onMarketplaceFilterChange,
-  onDateFromChange,
-  onDateToChange,
   hasFilters,
   onResetFilters,
-  columns,
-  sortKey,
-  sortDir,
-  onSort,
   paginated,
   page,
   pageSize,
@@ -101,8 +78,7 @@ export default function DaftarResiTable({
   loading,
   errorMessage,
 }) {
-  const activeFilterCount = [statusFilter, marketplaceFilter, dateFrom, dateTo].filter(Boolean)
-    .length;
+  const activeFilterCount = [statusFilter, marketplaceFilter].filter(Boolean).length;
 
   return (
     <div className="space-y-5">
@@ -112,9 +88,9 @@ export default function DaftarResiTable({
         className="flex items-start justify-between gap-3 sm:flex-row sm:items-center"
       >
         <div>
-          <h1 className="text-[1.4rem] font-bold text-slate-800">Daftar Resi</h1>
-          <p className="mt-1 text-[0.9rem] text-slate-500">
-            Kelola seluruh nomor resi pengembalian
+          <h2 className="text-[1.2rem] font-bold text-slate-800">Daftar Resi Marketplace</h2>
+          <p className="mt-1 text-[0.85rem] text-slate-500">
+            Data dari hasil input marketplace di menu cek resi
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -141,7 +117,7 @@ export default function DaftarResiTable({
               type="text"
               value={search}
               onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="Cari nomor resi atau nama penerima..."
+              placeholder="Cari nomor resi..."
               className={`w-full rounded-xl border px-4 py-2.5 pl-10 text-[0.85rem] text-slate-700 outline-none transition-all focus:ring-2 focus:ring-blue-100 ${
                 search ? 'border-blue-300 bg-blue-50/40' : 'border-slate-200 bg-slate-50'
               }`}
@@ -195,7 +171,7 @@ export default function DaftarResiTable({
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden"
             >
-              <div className="mt-4 grid grid-cols-1 gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="mt-4 grid grid-cols-1 gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-[0.75rem] text-slate-500">Status</label>
                   <select
@@ -226,24 +202,6 @@ export default function DaftarResiTable({
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="mb-1.5 block text-[0.75rem] text-slate-500">Dari Tanggal</label>
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(event) => onDateFromChange(event.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[0.85rem] text-slate-700 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-[0.75rem] text-slate-500">Sampai Tanggal</label>
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(event) => onDateToChange(event.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[0.85rem] text-slate-700 outline-none"
-                  />
-                </div>
               </div>
             </motion.div>
           )}
@@ -261,25 +219,18 @@ export default function DaftarResiTable({
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50">
                 <th className="w-10 px-5 py-3.5 text-left text-[0.75rem] font-medium text-slate-400">#</th>
-                {columns.map((column) => (
-                  <th
-                    key={column.key}
-                    className="whitespace-nowrap px-5 py-3.5 text-left text-[0.75rem] font-medium text-slate-400"
-                  >
-                    {column.sortable ? (
-                      <button
-                        type="button"
-                        onClick={() => onSort(column.key)}
-                        className="flex items-center gap-1.5 transition-colors hover:text-slate-700"
-                      >
-                        {column.label}
-                        <SortIcon columnKey={column.key} sortKey={sortKey} sortDir={sortDir} />
-                      </button>
-                    ) : (
-                      column.label
-                    )}
-                  </th>
-                ))}
+                <th className="whitespace-nowrap px-5 py-3.5 text-left text-[0.75rem] font-medium text-slate-400">
+                  Nomor Resi
+                </th>
+                <th className="whitespace-nowrap px-5 py-3.5 text-left text-[0.75rem] font-medium text-slate-400">
+                  Marketplace
+                </th>
+                <th className="whitespace-nowrap px-5 py-3.5 text-left text-[0.75rem] font-medium text-slate-400">
+                  Status
+                </th>
+                <th className="whitespace-nowrap px-5 py-3.5 text-left text-[0.75rem] font-medium text-slate-400">
+                  Tanggal Input
+                </th>
                 <th className="px-5 py-3.5 text-left text-[0.75rem] font-medium text-slate-400">Aksi</th>
               </tr>
             </thead>
@@ -287,22 +238,22 @@ export default function DaftarResiTable({
               <AnimatePresence>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="py-20">
+                    <td colSpan={6} className="py-20">
                       <div className="flex flex-col items-center gap-3 text-slate-500">
                         <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-blue-500" />
-                        <p className="text-[0.85rem]">Memuat data resi...</p>
+                        <p className="text-[0.85rem]">Memuat data marketplace...</p>
                       </div>
                     </td>
                   </tr>
                 ) : errorMessage ? (
                   <tr>
-                    <td colSpan={7} className="py-16 text-center">
+                    <td colSpan={6} className="py-16 text-center">
                       <p className="text-[0.85rem] text-red-500">{errorMessage}</p>
                     </td>
                   </tr>
                 ) : paginated.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-20 text-center">
+                    <td colSpan={6} className="py-20 text-center">
                       <div className="flex flex-col items-center gap-4">
                         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
                           <Package size={28} className="text-slate-400" />
@@ -310,7 +261,7 @@ export default function DaftarResiTable({
                         <div>
                           <p className="text-[0.9rem] font-semibold text-slate-600">Tidak ada data</p>
                           <p className="mt-1 text-[0.85rem] text-slate-400">
-                            {hasFilters ? 'Coba ubah filter pencarian' : 'Belum ada resi yang ditambahkan'}
+                            {hasFilters ? 'Coba ubah filter pencarian' : 'Belum ada resi marketplace'}
                           </p>
                         </div>
                         {hasFilters && (
@@ -340,26 +291,20 @@ export default function DaftarResiTable({
                         {(page - 1) * pageSize + index + 1}
                       </td>
                       <td className="px-5 py-3.5">
-                        <div>
-                          <span className="font-mono text-[0.85rem] font-medium text-slate-700">
-                            {resi.nomor_resi}
-                          </span>
-                          {resi.nama_penerima && (
-                            <p className="text-[0.75rem] text-slate-400">{resi.nama_penerima}</p>
-                          )}
-                        </div>
+                        <span className="font-mono text-[0.85rem] font-medium text-slate-700">
+                          {resi.nomor_resi}
+                        </span>
                       </td>
                       <td className="px-5 py-3.5">
                         <span className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[0.78rem] font-medium text-slate-600">
                           {resi.marketplace}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 text-[0.85rem] text-slate-500">{resi.kurir}</td>
-                      <td className="px-5 py-3.5 text-[0.85rem] text-slate-500">
-                        {formatTanggal(resi.tanggal)}
-                      </td>
                       <td className="px-5 py-3.5">
                         <StatusBadge status={resi.status} />
+                      </td>
+                      <td className="px-5 py-3.5 text-[0.85rem] text-slate-500">
+                        {formatTanggal(resi.created_at)}
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
@@ -473,10 +418,10 @@ export default function DaftarResiTable({
                 <Trash2 size={24} className="text-red-600" />
               </div>
               <h3 className="mb-2 text-center text-[1rem] font-bold text-slate-800">
-                Hapus Resi?
+                Hapus Resi Marketplace?
               </h3>
               <p className="mb-6 text-center text-[0.85rem] text-slate-500">
-                Data resi ini akan dihapus secara permanen dan tidak bisa dikembalikan.
+                Data ini akan dihapus secara permanen dan tidak bisa dikembalikan.
               </p>
               <div className="flex gap-3">
                 <button

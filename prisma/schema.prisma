@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ResiStatus {
+  Menunggu
+  Diterima
+  Selesai
+}
+
+model Resi {
+  id            String   @id @default(uuid()) @db.Uuid
+  nomor_resi    String   @unique
+  marketplace   String
+  kurir         String
+  status        ResiStatus @default(Diterima)
+  tanggal       DateTime @db.Date
+  nama_penerima String?
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([status])
+  @@map("resi")
+}
+
+model MarketplaceResi {
+  id         String     @id @default(uuid()) @db.Uuid
+  nomor_resi String     @unique
+  marketplace String
+  status     ResiStatus @default(Menunggu)
+  created_at DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at DateTime   @updatedAt @db.Timestamptz(6)
+
+  @@index([status])
+  @@map("marketplace_resi")
+}

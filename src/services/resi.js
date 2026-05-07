@@ -1,4 +1,22 @@
-import { createClient } from '@/lib/client';
+const API_BASE = '/api/resi';
+
+async function requestResi(url, options) {
+  try {
+    const response = await fetch(url, options);
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      return {
+        data: null,
+        error: payload?.error ?? { message: 'Terjadi kesalahan pada server.' },
+      };
+    }
+
+    return { data: payload?.data ?? null, error: null };
+  } catch (error) {
+    return { data: null, error: { message: 'Terjadi kesalahan tak terduga.' } };
+  }
+}
 
 /**
  * Add a new resi record to the database.
@@ -12,24 +30,11 @@ import { createClient } from '@/lib/client';
  * @returns {Promise<{ data: Object|null, error: Object|null }>}
  */
 export async function addResi(data) {
-  const supabase = createClient();
-
-  const { data: result, error } = await supabase
-    .from('resi')
-    .insert([
-      {
-        nomor_resi: data.nomor_resi,
-        marketplace: data.marketplace,
-        kurir: data.kurir,
-        status: data.status,
-        tanggal: data.tanggal,
-        nama_penerima: data.nama_penerima || null,
-      },
-    ])
-    .select()
-    .single();
-
-  return { data: result, error };
+  return requestResi(API_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
 }
 
 /**
@@ -37,14 +42,7 @@ export async function addResi(data) {
  * @returns {Promise<{ data: Array|null, error: Object|null }>}
  */
 export async function getResiList() {
-  const supabase = createClient();
-
-  const { data, error } = await supabase
-    .from('resi')
-    .select('*')
-    .order('created_at', { ascending: false });
-
-  return { data, error };
+  return requestResi(API_BASE, { method: 'GET', cache: 'no-store' });
 }
 
 /**
@@ -53,14 +51,19 @@ export async function getResiList() {
  * @returns {Promise<{ data: Object|null, error: Object|null }>}
  */
 export async function deleteResi(id) {
-  const supabase = createClient();
+  return requestResi(`${API_BASE}/${id}`, { method: 'DELETE' });
+}
 
-  const { data, error } = await supabase
-    .from('resi')
-    .delete()
-    .eq('id', id)
-    .select()
-    .single();
-
-  return { data, error };
+/**
+ * Update a resi status by id.
+ * @param {string|number} id
+ * @param {string} status
+ * @returns {Promise<{ data: Object|null, error: Object|null }>}
+ */
+export async function updateResiStatus(id, status) {
+  return requestResi(`${API_BASE}/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  });
 }
