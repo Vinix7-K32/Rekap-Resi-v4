@@ -28,8 +28,6 @@ const NAV_ITEMS = [
   { to: '/daftar-resi', label: 'Daftar Resi', icon: ClipboardList, end: false },
 ];
 
-
-
 const pageTitles = {
   '/dashboard': 'Dashboard',
   '/tambah-resi': 'Tambah Resi',
@@ -115,10 +113,10 @@ export default function Sidebar({ children }) {
                     isActive
                       ? 'text-white'
                       : 'text-slate-400 hover:text-white'
-                  }`}
+                  } ${sidebarOpen ? {} : 'w-min'}`}
                   style={
                     isActive
-                      ? { background: 'linear-gradient(135deg, #3B82F6, #2563EB)', boxShadow: '0 4px 15px rgba(59,130,246,0.4)' }
+                      ? { background: 'linear-gradient(135deg, #3B82F6, #2563EB)', boxShadow: '0 0 15px rgba(59,130,246,0.4)' }
                       : {}
                   }
                 >
