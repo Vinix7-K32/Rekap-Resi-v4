@@ -11,6 +11,8 @@ import {
   getMarketplaceResiList,
 } from '@/services/marketplace-resi';
 import { CekResiUI } from '@/components/app/cek-resi-ui';
+import { useActionState } from 'react';
+import { addMarketplaceResiAction } from './actions';
 
 export const MARKETPLACES = ['Shopee', 'Tokopedia', 'Lazada', 'Bukalapak', 'TikTok Shop'];
 
@@ -50,6 +52,13 @@ export default function CekResiPage() {
   const [manualNomor, setManualNomor] = useState('');
   const [manualMarketplace, setManualMarketplace] = useState('');
   const [manualError, setManualError] = useState('');
+  
+  const [formState, manualFormAction, isManualPending] = useActionState(addMarketplaceResiAction, {
+    success: false,
+    error: '',
+    data: null,
+    fieldErrors: {}
+  });
 
   const [isDragging, setIsDragging] = useState(false);
   const [csvStatus, setCsvStatus] = useState('idle');
@@ -128,6 +137,25 @@ export default function CekResiPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (formState?.success && formState.data) {
+      setTimeout(() => {
+        setMarketplaceData((prev) => {
+          if (prev.some((item) => item.id === formState.data.id)) return prev;
+          return [formState.data, ...prev];
+        });
+        setManualNomor('');
+        setComparisonResults(null);
+        setManualError('');
+      }, 0);
+    } else if (formState?.error) {
+      setTimeout(() => {
+        setManualError(formState.error);
+      }, 0);
+      toast.error('Gagal menyimpan data marketplace', { description: formState.error });
+    }
+  }, [formState]);
+
   const refreshResiList = async () => {
     setLoading(true);
     setLoadError('');
@@ -203,43 +231,6 @@ export default function CekResiPage() {
     return comparisonResults.filter((item) => item.status === resultFilter);
   }, [comparisonResults, resultFilter]);
 
-  const handleAddManual = async () => {
-    if (!manualNomor.trim()) {
-      setManualError('Nomor resi wajib diisi');
-      return;
-    }
-    if (!manualMarketplace) {
-      setManualError('Pilih marketplace terlebih dahulu');
-      return;
-    }
-
-    const normalized = manualNomor.trim().toUpperCase();
-    if (marketplaceData.some((item) => item.nomor_resi?.toUpperCase() === normalized)) {
-      setManualError('Nomor resi sudah ada dalam daftar');
-      return;
-    }
-
-    setManualError('');
-
-    try {
-      const { data, error } = await addMarketplaceResi({
-        nomor_resi: normalized,
-        marketplace: manualMarketplace,
-      });
-
-      if (error) {
-        setManualError(error.message);
-        toast.error('Gagal menyimpan data marketplace', { description: error.message });
-        return;
-      }
-
-      setMarketplaceData((prev) => [data, ...prev]);
-      setManualNomor('');
-      setComparisonResults(null);
-    } catch (err) {
-      toast.error('Terjadi kesalahan tak terduga');
-    }
-  };
 
   const parseCSV = (content) => {
     const lines = content
@@ -595,7 +586,8 @@ export default function CekResiPage() {
     isComparing={isComparing} compareError={compareError} comparisonResults={comparisonResults}
     resultFilter={resultFilter} setResultFilter={setResultFilter}
     filteredInternal={filteredInternal} canCompare={canCompare} cocokCount={cocokCount} tidakCocokCount={tidakCocokCount} tidakDitemukanCount={tidakDitemukanCount} totalResult={totalResult} matchRate={matchRate} filteredResults={filteredResults} steps={steps}
-    handleAddManual={handleAddManual} processFile={processFile} handleDrop={handleDrop} handleImportCSV={handleImportCSV} downloadTemplate={downloadTemplate} handleCompare={handleCompare} handleReset={handleReset} downloadResults={downloadResults}
+    processFile={processFile} handleDrop={handleDrop} handleImportCSV={handleImportCSV} downloadTemplate={downloadTemplate} handleCompare={handleCompare} handleReset={handleReset} downloadResults={downloadResults}
     onClearMarketplace={handleClearMarketplace} onDeleteMarketplace={handleDeleteMarketplace}
+    manualFormAction={manualFormAction} isManualPending={isManualPending} formState={formState}
   />;
 }

@@ -127,8 +127,9 @@ export function CekResiUI({
   isComparing, compareError, comparisonResults,
   resultFilter, setResultFilter,
   filteredInternal, canCompare, cocokCount, tidakCocokCount, tidakDitemukanCount, totalResult, matchRate, filteredResults, steps,
-  handleAddManual, processFile, handleDrop, handleImportCSV, downloadTemplate, handleCompare, handleReset, downloadResults,
+  processFile, handleDrop, handleImportCSV, downloadTemplate, handleCompare, handleReset, downloadResults,
   onClearMarketplace, onDeleteMarketplace,
+  manualFormAction, isManualPending, formState,
 }) {
   return (
     <div className="space-y-6 pb-8">
@@ -262,71 +263,98 @@ export function CekResiUI({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: 0.15 }}
-                  className="space-y-3"
                 >
-                  <div className="space-y-1.5">
-                    <Label className="text-[0.8rem] font-semibold text-slate-600">Nomor Resi</Label>
-                    <Input
-                      value={manualNomor}
-                      onChange={(event) => {
-                        setManualNomor(event.target.value);
-                        setManualError('');
-                      }}
-                      onKeyDown={(event) => event.key === 'Enter' && handleAddManual()}
-                      placeholder="Ketik nomor resi, tekan Enter..."
-                      className={cn(
-                        'h-10 rounded-xl border-slate-200 bg-slate-50 font-mono text-[0.88rem] text-slate-700 focus-visible:ring-blue-100',
-                        manualError && !manualNomor.trim() && 'border-red-300 focus-visible:ring-red-100'
-                      )}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[0.8rem] font-semibold text-slate-600">Marketplace</Label>
-                    <Select
-                      value={manualMarketplace}
-                      onValueChange={(value) => {
-                        setManualMarketplace(value);
-                        setManualError('');
-                      }}
-                    >
-                      <SelectTrigger
+                  <form action={manualFormAction} className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-[0.8rem] font-semibold text-slate-600">Nomor Resi</Label>
+                      <Input
+                        name="nomor_resi"
+                        value={manualNomor}
+                        onChange={(event) => {
+                          setManualNomor(event.target.value);
+                          setManualError('');
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            event.currentTarget.form?.requestSubmit();
+                          }
+                        }}
+                        placeholder="Ketik nomor resi, tekan Enter..."
                         className={cn(
-                          'h-10 rounded-xl border-slate-200 bg-slate-50 text-[0.88rem] text-slate-600',
-                          manualError && !manualMarketplace && 'border-red-300'
+                          'h-10 rounded-xl border-slate-200 bg-slate-50 font-mono text-[0.88rem] text-slate-700 focus-visible:ring-blue-100',
+                          (manualError && !manualNomor.trim()) || formState?.fieldErrors?.nomor_resi ? 'border-red-300 focus-visible:ring-red-100' : ''
                         )}
+                      />
+                      {formState?.fieldErrors?.nomor_resi && (
+                        <p className="text-[0.78rem] font-semibold text-red-500">
+                          {formState.fieldErrors.nomor_resi[0]}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[0.8rem] font-semibold text-slate-600">Marketplace</Label>
+                      <input type="hidden" name="marketplace" value={manualMarketplace} />
+                      <Select
+                        value={manualMarketplace}
+                        onValueChange={(value) => {
+                          setManualMarketplace(value);
+                          setManualError('');
+                        }}
                       >
-                        <SelectValue placeholder="Pilih Marketplace" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {MARKETPLACES.map((marketplace) => (
-                          <SelectItem key={marketplace} value={marketplace}>
-                            {marketplace}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <AnimatePresence>
-                    {manualError && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }}
-                        className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2"
-                      >
-                        <AlertTriangle size={13} className="text-red-500" />
-                        <span className="text-[0.78rem] text-red-600">{manualError}</span>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                  <Button
-                    type="button"
-                    onClick={handleAddManual}
-                    className="h-10 w-full rounded-xl bg-linear-to-br from-blue-500 to-blue-700 text-[0.88rem] shadow-[0_4px_12px_rgba(59,130,246,0.28)]"
-                  >
-                    <Plus size={15} />
-                    Tambah Data
-                  </Button>
+                        <SelectTrigger
+                          className={cn(
+                            'h-10 rounded-xl border-slate-200 bg-slate-50 text-[0.88rem] text-slate-600',
+                            (manualError && !manualMarketplace) || formState?.fieldErrors?.marketplace ? 'border-red-300' : ''
+                          )}
+                        >
+                          <SelectValue placeholder="Pilih Marketplace" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {MARKETPLACES.map((marketplace) => (
+                            <SelectItem key={marketplace} value={marketplace}>
+                              {marketplace}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {formState?.fieldErrors?.marketplace && (
+                        <p className="text-[0.78rem] font-semibold text-red-500">
+                          {formState.fieldErrors.marketplace[0]}
+                        </p>
+                      )}
+                    </div>
+                    <AnimatePresence>
+                      {manualError && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                          className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2"
+                        >
+                          <AlertTriangle size={13} className="text-red-500" />
+                          <span className="text-[0.78rem] text-red-600">{manualError}</span>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                    <Button
+                      type="submit"
+                      disabled={isManualPending}
+                      className="h-10 w-full rounded-xl bg-linear-to-br from-blue-500 to-blue-700 text-[0.88rem] shadow-[0_4px_12px_rgba(59,130,246,0.28)] disabled:opacity-60"
+                    >
+                      {isManualPending ? (
+                        <>
+                          <Spinner className="mr-2 size-4 border-2 border-white/30 border-t-white" />
+                          Menambahkan...
+                        </>
+                      ) : (
+                        <>
+                          <Plus size={15} />
+                          Tambah Data
+                        </>
+                      )}
+                    </Button>
+                  </form>
                 </motion.div>
               )}
 

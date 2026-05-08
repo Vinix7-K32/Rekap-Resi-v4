@@ -29,50 +29,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request) {
-  const user = await getUser();
-  if (!user) {
-    return NextResponse.json({ error: { message: 'Unauthorized.' } }, { status: 401 });
-  }
 
-  try {
-    const payload = await request.json();
-    const nomor_resi = `${payload?.nomor_resi ?? ''}`.trim().toUpperCase();
-    const marketplace = `${payload?.marketplace ?? ''}`.trim();
-
-    if (!nomor_resi || !marketplace) {
-      return NextResponse.json(
-        { error: { message: 'Nomor resi dan marketplace wajib diisi.' } },
-        { status: 400 }
-      );
-    }
-
-    const created = await prisma.marketplaceResi.create({
-      data: {
-        user_id: user.sub,
-        nomor_resi,
-        marketplace,
-      },
-    });
-
-    return NextResponse.json(
-      { data: serializeMarketplaceResi(created) },
-      { status: 201 }
-    );
-  } catch (error) {
-    if (error?.code === 'P2002') {
-      return NextResponse.json(
-        { error: { message: 'Nomor resi marketplace sudah terdaftar.' } },
-        { status: 409 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: { message: 'Gagal menyimpan resi marketplace.' } },
-      { status: 500 }
-    );
-  }
-}
 
 export async function DELETE() {
   const user = await getUser();

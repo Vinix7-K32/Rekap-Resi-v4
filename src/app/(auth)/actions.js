@@ -3,19 +3,33 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/server";
+import { z } from "zod";
 
-const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
-const normalizeText = (value) => String(value || "").trim();
-const normalizePassword = (value) => String(value || "");
+const loginSchema = z.object({
+  email: z.string().email({ message: "Format email tidak valid." }),
+  password: z.string().min(1, { message: "Password wajib diisi." }),
+});
+
+const registerSchema = z.object({
+  name: z.string().min(2, { message: "Nama minimal 2 karakter." }),
+  email: z.string().email({ message: "Format email tidak valid." }),
+  password: z.string().min(6, { message: "Password minimal 6 karakter." }),
+  confirm: z.string()
+}).refine((data) => data.password === data.confirm, {
+  message: "Konfirmasi password tidak cocok.",
+  path: ["confirm"],
+});
 
 export async function loginAction(previousState, formData) {
   void previousState;
-  const email = normalizeEmail(formData.get("email"));
-  const password = normalizePassword(formData.get("password"));
-
-  if (!email || !password) {
-    return { error: "Email dan password wajib diisi." };
+  
+  const parsed = loginSchema.safeParse(Object.fromEntries(formData));
+  
+  if (!parsed.success) {
+    return { fieldErrors: parsed.error.flatten().fieldErrors };
   }
+  
+  const { email, password } = parsed.data;
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -29,13 +43,14 @@ export async function loginAction(previousState, formData) {
 
 export async function registerAction(previousState, formData) {
   void previousState;
-  const name = normalizeText(formData.get("name"));
-  const email = normalizeEmail(formData.get("email"));
-  const password = normalizePassword(formData.get("password"));
-
-  if (!email || !password) {
-    return { error: "Email dan password wajib diisi." };
+  
+  const parsed = registerSchema.safeParse(Object.fromEntries(formData));
+  
+  if (!parsed.success) {
+    return { fieldErrors: parsed.error.flatten().fieldErrors };
   }
+
+  const { name, email, password } = parsed.data;
 
   const headerStore = await headers();
   const origin = headerStore.get("origin");

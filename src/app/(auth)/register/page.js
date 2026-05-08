@@ -58,6 +58,7 @@ export default function Page() {
   const [formState, formAction, isPending] = useActionState(registerAction, {
     error: "",
     success: "",
+    fieldErrors: {},
   });
 
   const strength = getPasswordStrength(password);
@@ -205,6 +206,11 @@ export default function Page() {
                     className="h-11 rounded-xl border-slate-200 bg-slate-50 pl-10 pr-10 text-[0.9rem] text-slate-900 placeholder:text-slate-400 focus-visible:border-blue-500 focus-visible:ring-blue-500/20"
                   />
                 </div>
+                {formState?.fieldErrors?.name && (
+                  <p className="mt-1.5 text-[0.8rem] font-semibold text-red-500">
+                    {formState.fieldErrors.name[0]}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -224,6 +230,11 @@ export default function Page() {
                     className="h-11 rounded-xl border-slate-200 bg-slate-50 pl-10 pr-10 text-[0.9rem] text-slate-900 placeholder:text-slate-400 focus-visible:border-blue-500 focus-visible:ring-blue-500/20"
                   />
                 </div>
+                {formState?.fieldErrors?.email && (
+                  <p className="mt-1.5 text-[0.8rem] font-semibold text-red-500">
+                    {formState.fieldErrors.email[0]}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -270,6 +281,11 @@ export default function Page() {
                     )}
                   </div>
                 )}
+                {formState?.fieldErrors?.password && (
+                  <p className="mt-1.5 text-[0.8rem] font-semibold text-red-500">
+                    {formState.fieldErrors.password[0]}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -296,6 +312,11 @@ export default function Page() {
                     {showConf ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+                {formState?.fieldErrors?.confirm && (
+                  <p className="mt-1.5 text-[0.8rem] font-semibold text-red-500">
+                    {formState.fieldErrors.confirm[0]}
+                  </p>
+                )}
               </div>
 
               <label className="flex items-start gap-2.5 cursor-pointer select-none text-[0.82rem] text-slate-500">
