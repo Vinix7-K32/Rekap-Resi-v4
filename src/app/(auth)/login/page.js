@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import {
   Boxes,
   BarChart3,
@@ -19,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Spinner } from "@/components/ui/spinner";
+import { loginAction } from "../actions";
 
 const FEATURES = [
   {
@@ -39,27 +39,13 @@ const FEATURES = [
 ];
 
 export default function Page() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [remember, setRemember] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    const form = event.currentTarget;
-
-    if (!form.checkValidity()) {
-      form.reportValidity();
-      return;
-    }
-
-    setLoading(true);
-    setTimeout(() => {
-      router.push("/dashboard");
-    }, 500);
-  };
+  const [formState, formAction, isPending] = useActionState(loginAction, {
+    error: "",
+  });
 
   return (
     <div className="min-h-screen flex bg-slate-50">
@@ -155,7 +141,7 @@ export default function Page() {
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="px-8 pb-8 pt-4 space-y-4">
+            <form action={formAction} className="px-8 pb-8 pt-4 space-y-4">
               <div>
                 <label className="block mb-1.5 text-[0.82rem] font-semibold text-slate-700">
                   Email
@@ -163,6 +149,7 @@ export default function Page() {
                 <div className="relative">
                   <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   <Input
+                    name="email"
                     type="email"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
@@ -190,6 +177,7 @@ export default function Page() {
                 <div className="relative">
                   <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   <Input
+                    name="password"
                     type={showPass ? "text" : "password"}
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
@@ -217,12 +205,18 @@ export default function Page() {
                 Ingat saya
               </label>
 
+              {formState?.error && (
+                <p className="text-[0.8rem] font-semibold text-red-500">
+                  {formState.error}
+                </p>
+              )}
+
               <Button
                 type="submit"
-                disabled={loading}
+                disabled={isPending}
                 className="h-12 w-full rounded-xl text-[0.95rem] font-semibold text-white bg-linear-to-br from-blue-600 to-blue-700 shadow-[0_6px_20px_rgb(29_78_216/0.35)] hover:brightness-105 disabled:opacity-60"
               >
-                {loading ? (
+                {isPending ? (
                   <>
                     <Spinner className="mr-2" />Memproses...
                   </>

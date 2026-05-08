@@ -1,7 +1,7 @@
-"use client";
-
+import { getUser } from '@/lib/auth';
 import Sidebar from '../../components/app/sidebar';
 
-export default function Layout({ children }) {
-  return <Sidebar>{children}</Sidebar>;
+export default async function Layout({ children }) {
+  const user = await getUser();
+  return <Sidebar user={user}>{children}</Sidebar>;
 }

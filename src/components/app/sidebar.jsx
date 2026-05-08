@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useTransition } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
+import { logoutAction } from '@/app/(auth)/actions';
 import {
   LayoutDashboard,
   PackagePlus,
@@ -35,25 +37,24 @@ const pageTitles = {
   '/daftar-resi': 'Daftar Resi',
 };
 
-export default function Sidebar({ children }) {
+export default function Sidebar({ children, user }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  
-  const pathname = usePathname();
-  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
 
-  // Mock user since auth is bypassed
-  const user = {
-    name: 'Admin',
-    email: 'admin@rekapresi.id',
-    initials: 'A',
-    role: 'Administrator'
-  };
+  const pathname = usePathname();
+
+  // Derive display values from Supabase JWT claims
+  const displayName = user?.user_metadata?.name ?? user?.email?.split('@')[0] ?? 'User';
+  const displayEmail = user?.email ?? '';
+  const initials = displayName.charAt(0).toUpperCase();
 
   const handleLogout = () => {
-    router.push('/login');
+    startTransition(async () => {
+      await logoutAction();
+    });
   };
 
   const pageTitle = pageTitles[pathname] || 'Rekap Resi';
@@ -149,12 +150,12 @@ export default function Sidebar({ children }) {
             className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white font-semibold"
             style={{ background: 'linear-gradient(135deg, #8B5CF6, #6D28D9)', fontSize: '0.8rem' }}
           >
-            {user?.initials ?? 'A'}
+            {user?.initials ?? initials}
           </div>
           {sidebarOpen && (
             <div className="overflow-hidden">
-              <p className="text-white whitespace-nowrap overflow-hidden" style={{ fontSize: '0.85rem' }}>{user?.name ?? 'Admin'}</p>
-              <p className="text-slate-400 whitespace-nowrap overflow-hidden" style={{ fontSize: '0.72rem' }}>{user?.email ?? 'admin@rekapresi.id'}</p>
+              <p className="text-white whitespace-nowrap overflow-hidden" style={{ fontSize: '0.85rem' }}>{displayName}</p>
+              <p className="text-slate-400 whitespace-nowrap overflow-hidden" style={{ fontSize: '0.72rem' }}>{displayEmail}</p>
             </div>
           )}
         </div>
@@ -288,11 +289,11 @@ export default function Sidebar({ children }) {
                   className="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold shrink-0"
                   style={{ background: 'linear-gradient(135deg, #8B5CF6, #6D28D9)', fontSize: '0.8rem' }}
                 >
-                  {user?.initials ?? 'A'}
+                  {initials}
                 </div>
                 <div className="hidden sm:block text-left">
-                  <p className="text-slate-700" style={{ fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.2 }}>{user?.name ?? 'Admin'}</p>
-                  <p className="text-slate-400" style={{ fontSize: '0.7rem', lineHeight: 1.2 }}>{user?.role ?? 'Administrator'}</p>
+                  <p className="text-slate-700" style={{ fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.2 }}>{displayName}</p>
+                  <p className="text-slate-400" style={{ fontSize: '0.7rem', lineHeight: 1.2 }}>User</p>
                 </div>
                 <ChevronDown size={14} className="text-slate-400 hidden sm:block" />
               </button>
@@ -302,8 +303,8 @@ export default function Sidebar({ children }) {
                   style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.15)', border: '1px solid #E2E8F0', backgroundColor: '#fff' }}
                 >
                   <div className="px-4 py-3 border-b" style={{ borderColor: '#F1F5F9' }}>
-                    <p className="text-slate-800 font-semibold" style={{ fontSize: '0.85rem' }}>{user?.name ?? 'Admin'}</p>
-                    <p className="text-slate-400" style={{ fontSize: '0.72rem' }}>{user?.email ?? 'admin@rekapresi.id'}</p>
+                    <p className="text-slate-800 font-semibold" style={{ fontSize: '0.85rem' }}>{displayName}</p>
+                    <p className="text-slate-400" style={{ fontSize: '0.72rem' }}>{displayEmail}</p>
                   </div>
                   {[{ icon: User, label: 'Profil Saya' }, { icon: Settings, label: 'Pengaturan' }].map(({ icon: Icon, label }) => (
                     <button
@@ -318,7 +319,8 @@ export default function Sidebar({ children }) {
                   <div className="border-t" style={{ borderColor: '#F1F5F9' }}>
                     <button
                       onClick={handleLogout}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 transition-colors"
+                      disabled={isPending}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 transition-colors disabled:opacity-60"
                       style={{ color: '#EF4444', fontSize: '0.85rem' }}
                     >
                       <LogOut size={15} />

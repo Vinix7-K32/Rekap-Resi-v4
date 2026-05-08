@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getUser } from '@/lib/auth';
 
 const VALID_STATUSES = new Set(['Menunggu', 'Diterima', 'Selesai']);
 
@@ -11,8 +12,14 @@ const serializeResi = (resi) => ({
 });
 
 export async function GET() {
+  const user = await getUser();
+  if (!user) {
+    return NextResponse.json({ error: { message: 'Unauthorized.' } }, { status: 401 });
+  }
+
   try {
     const data = await prisma.resi.findMany({
+      where: { user_id: user.sub },
       orderBy: { created_at: 'desc' },
     });
 
@@ -26,6 +33,11 @@ export async function GET() {
 }
 
 export async function POST(request) {
+  const user = await getUser();
+  if (!user) {
+    return NextResponse.json({ error: { message: 'Unauthorized.' } }, { status: 401 });
+  }
+
   try {
     const payload = await request.json();
     const nomor_resi = `${payload?.nomor_resi ?? ''}`.trim().toUpperCase();
@@ -59,6 +71,7 @@ export async function POST(request) {
 
     const created = await prisma.resi.create({
       data: {
+        user_id: user.sub,
         nomor_resi,
         marketplace,
         kurir,

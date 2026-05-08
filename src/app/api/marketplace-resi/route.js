@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getUser } from '@/lib/auth';
 
 const serializeMarketplaceResi = (resi) => ({
   ...resi,
@@ -8,8 +9,14 @@ const serializeMarketplaceResi = (resi) => ({
 });
 
 export async function GET() {
+  const user = await getUser();
+  if (!user) {
+    return NextResponse.json({ error: { message: 'Unauthorized.' } }, { status: 401 });
+  }
+
   try {
     const data = await prisma.marketplaceResi.findMany({
+      where: { user_id: user.sub },
       orderBy: { created_at: 'desc' },
     });
 
@@ -23,6 +30,11 @@ export async function GET() {
 }
 
 export async function POST(request) {
+  const user = await getUser();
+  if (!user) {
+    return NextResponse.json({ error: { message: 'Unauthorized.' } }, { status: 401 });
+  }
+
   try {
     const payload = await request.json();
     const nomor_resi = `${payload?.nomor_resi ?? ''}`.trim().toUpperCase();
@@ -37,6 +49,7 @@ export async function POST(request) {
 
     const created = await prisma.marketplaceResi.create({
       data: {
+        user_id: user.sub,
         nomor_resi,
         marketplace,
       },
@@ -62,8 +75,15 @@ export async function POST(request) {
 }
 
 export async function DELETE() {
+  const user = await getUser();
+  if (!user) {
+    return NextResponse.json({ error: { message: 'Unauthorized.' } }, { status: 401 });
+  }
+
   try {
-    const deleted = await prisma.marketplaceResi.deleteMany();
+    const deleted = await prisma.marketplaceResi.deleteMany({
+      where: { user_id: user.sub },
+    });
     return NextResponse.json({ data: { count: deleted.count } });
   } catch (error) {
     return NextResponse.json(

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getUser } from '@/lib/auth';
 
 const serializeMarketplaceResi = (resi) => ({
   ...resi,
@@ -8,6 +9,11 @@ const serializeMarketplaceResi = (resi) => ({
 });
 
 export async function DELETE(request, { params }) {
+  const user = await getUser();
+  if (!user) {
+    return NextResponse.json({ error: { message: 'Unauthorized.' } }, { status: 401 });
+  }
+
   const { id } = (await params) ?? {};
 
   if (!id) {
@@ -19,7 +25,7 @@ export async function DELETE(request, { params }) {
 
   try {
     const deleted = await prisma.marketplaceResi.delete({
-      where: { id },
+      where: { id, user_id: user.sub },
     });
 
     return NextResponse.json({ data: serializeMarketplaceResi(deleted) });
