@@ -1,6 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'motion/react';
+import { Progress } from '@/components/ui/progress';
 import {
   AlertTriangle,
   CheckCircle,
@@ -115,6 +116,7 @@ function formatTanggal(value) {
 
 export function CekResiUI({
   resiList, loading, loadError,
+  eligibleInternal,
   marketplaceData, marketplaceLoading, marketplaceError,
   inputTab, setInputTab,
   manualNomor, setManualNomor,
@@ -124,12 +126,14 @@ export function CekResiUI({
   csvStatus, csvError, csvPreview, fileInputRef,
   internalSearch, setInternalSearch,
   internalMpFilter, setInternalMpFilter,
-  isComparing, compareError, comparisonResults,
+  isComparing, compareProgress, compareError, comparisonResults,
   resultFilter, setResultFilter,
+  resultPage, setResultPage, totalPages, pagedResults,
   filteredInternal, canCompare, cocokCount, tidakCocokCount, tidakDitemukanCount, totalResult, matchRate, filteredResults, steps,
   processFile, handleDrop, handleImportCSV, downloadTemplate, handleCompare, handleReset, downloadResults,
   onClearMarketplace, onDeleteMarketplace,
   manualFormAction, isManualPending, formState,
+  onManualFormSubmit,
 }) {
   return (
     <div className="space-y-6 pb-8">
@@ -264,7 +268,11 @@ export function CekResiUI({
                   exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: 0.15 }}
                 >
-                  <form action={manualFormAction} className="space-y-3">
+                  <form
+                    action={manualFormAction}
+                    onSubmit={() => onManualFormSubmit?.(manualNomor, manualMarketplace)}
+                    className="space-y-3"
+                  >
                     <div className="space-y-1.5">
                       <Label className="text-[0.8rem] font-semibold text-slate-600">Nomor Resi</Label>
                       <Input
@@ -542,13 +550,19 @@ export function CekResiUI({
                         {entry.nomor_resi}
                       </span>
                       <MarketplacePill marketplace={entry.marketplace} />
-                      <button
-                        type="button"
-                        onClick={() => onDeleteMarketplace(entry.id)}
-                        className="opacity-0 transition-opacity group-hover:opacity-100"
-                      >
-                        <X size={13} className="text-slate-300 hover:text-red-400" />
-                      </button>
+                      {String(entry.id).startsWith('temp-') ? (
+                        <span className="flex h-4 w-4 items-center justify-center opacity-40">
+                          <span className="h-3 w-3 animate-spin rounded-full border border-slate-400 border-t-transparent" />
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onDeleteMarketplace(entry.id)}
+                          className="opacity-0 transition-opacity group-hover:opacity-100"
+                        >
+                          <X size={13} className="text-slate-300 hover:text-red-400" />
+                        </button>
+                      )}
                     </motion.div>
                   ))}
                 </div>
@@ -582,7 +596,7 @@ export function CekResiUI({
                 </div>
               </div>
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5">
-                <span className="text-[0.75rem] font-bold text-emerald-700">{resiList.length} Total</span>
+                <span className="text-[0.75rem] font-bold text-emerald-700">{eligibleInternal.length} Diterima</span>
               </div>
             </div>
 
@@ -737,10 +751,10 @@ export function CekResiUI({
             </div>
             <div>
               <p className={cn('text-[2rem] font-extrabold leading-none', canCompare ? 'text-white' : 'text-slate-300')}>
-                {resiList.length}
+                {eligibleInternal.length}
               </p>
               <p className={cn('mt-1 text-[0.73rem]', canCompare ? 'text-white/70' : 'text-slate-400')}>
-                Data Internal
+                Data Internal (Diterima)
               </p>
             </div>
           </div>
@@ -793,7 +807,7 @@ export function CekResiUI({
               {isComparing ? (
                 <>
                   <RefreshCw size={18} className="animate-spin" />
-                  Memproses...
+                  Memproses... {compareProgress}%
                 </>
               ) : (
                 <>
@@ -803,7 +817,19 @@ export function CekResiUI({
               )}
             </Button>
 
-            {!canCompare && (
+            {isComparing && (
+              <div className="w-full sm:w-56 space-y-1">
+                <Progress
+                  value={compareProgress}
+                  className="h-2 w-full rounded-full bg-white/20"
+                />
+                <p className="text-center text-[0.68rem] text-white/60">
+                  {compareProgress}% selesai
+                </p>
+              </div>
+            )}
+
+            {!canCompare && !isComparing && (
               <p className="text-center text-[0.72rem] text-slate-400">
                 {marketplaceData.length === 0
                   ? 'Tambahkan data marketplace terlebih dahulu'
@@ -815,7 +841,7 @@ export function CekResiUI({
       </motion.div>
 
       <AnimatePresence>
-        {comparisonResults && (
+        {comparisonResults !== null && comparisonResults.length > 0 && (
           <motion.div
             id="hasil-perbandingan"
             initial={{ opacity: 0, y: 20 }}
@@ -1028,28 +1054,31 @@ export function CekResiUI({
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredResults.length === 0 ? (
+                  {pagedResults.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="py-14 text-center">
                         <div className="flex flex-col items-center gap-2">
                           <Filter size={22} className="text-slate-300" />
-                          <p className="text-[0.85rem] text-slate-400">Tidak ada data untuk filter ini</p>
+                          <p className="text-[0.85rem] text-slate-400">
+                            {isComparing ? 'Memproses data...' : 'Tidak ada data untuk filter ini'}
+                          </p>
                         </div>
                       </td>
                     </tr>
                   ) : (
-                    filteredResults.map((result, index) => {
+                    pagedResults.map((result, index) => {
                       const cfg = VERIFICATION_CONFIG[result.status];
                       const VIcon = ICONS[result.status];
+                      const globalIndex = (resultPage - 1) * 10 + index;
                       return (
                         <motion.tr
-                          key={`${result.nomor_resi}-${index}`}
+                          key={`${result.nomor_resi}-${globalIndex}`}
                           initial={{ opacity: 0, y: 4 }}
                           animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: Math.min(index * 0.025, 0.35) }}
+                          transition={{ delay: Math.min(index * 0.025, 0.2) }}
                           className="border-b border-slate-100 transition-colors hover:bg-slate-50/60"
                         >
-                          <td className="w-10 px-5 py-3.5 text-[0.75rem] text-slate-300">{index + 1}</td>
+                          <td className="w-10 px-5 py-3.5 text-[0.75rem] text-slate-300">{globalIndex + 1}</td>
                           <td className="px-5 py-3.5">
                             <span className="font-mono text-[0.85rem] font-medium text-slate-700">
                               {result.nomor_resi}
@@ -1102,6 +1131,65 @@ export function CekResiUI({
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3">
+                <p className="text-[0.73rem] text-slate-400">
+                  Halaman <span className="font-semibold text-slate-600">{resultPage}</span> dari{' '}
+                  <span className="font-semibold text-slate-600">{totalPages}</span>
+                  {isComparing && (
+                    <span className="ml-1 text-blue-500">(memproses...)</span>
+                  )}
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setResultPage((p) => Math.max(1, p - 1))}
+                    disabled={resultPage === 1}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-[0.75rem] text-slate-500 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    ← Prev
+                  </button>
+                  {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                    // Show pages around current page
+                    let page;
+                    if (totalPages <= 5) {
+                      page = i + 1;
+                    } else if (resultPage <= 3) {
+                      page = i + 1;
+                    } else if (resultPage >= totalPages - 2) {
+                      page = totalPages - 4 + i;
+                    } else {
+                      page = resultPage - 2 + i;
+                    }
+                    return (
+                      <button
+                        key={page}
+                        type="button"
+                        onClick={() => setResultPage(page)}
+                        className={cn(
+                          'h-8 w-8 rounded-lg text-[0.75rem] font-semibold transition-colors',
+                          resultPage === page
+                            ? 'bg-blue-600 text-white'
+                            : 'border border-slate-200 text-slate-500 hover:bg-slate-50'
+                        )}
+                      >
+                        {page}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => setResultPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={resultPage === totalPages}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-[0.75rem] text-slate-500 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Next →
+                  </button>
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

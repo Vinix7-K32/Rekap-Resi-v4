@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:cek-resi": "node prisma/seed-cek-resi.js"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

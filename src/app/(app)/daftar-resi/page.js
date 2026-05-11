@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback, Suspense } from 'react';
+import { useEffect, useMemo, useState, useCallback, useOptimistic, startTransition, Suspense } from 'react';
 import { useSearchParams, usePathname, useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
 import { Package2, Store } from 'lucide-react';
@@ -24,17 +24,6 @@ const COLUMNS = [
   { key: 'status', label: 'Status', sortable: true },
 ];
 
-// ─── Skeleton fallback untuk Suspense ────────────────────────────────────────
-function PageSkeleton() {
-  return (
-    <div className="space-y-6 animate-pulse">
-      <div className="h-8 w-48 rounded-xl bg-slate-200" />
-      <div className="h-4 w-72 rounded-lg bg-slate-100" />
-      <div className="h-10 w-64 rounded-xl bg-slate-200" />
-      <div className="h-96 w-full rounded-2xl bg-slate-100" />
-    </div>
-  );
-}
 
 // ─── Konten utama (butuh useSearchParams → wajib dalam Suspense) ─────────────
 function DaftarResiContent() {
@@ -82,6 +71,17 @@ function DaftarResiContent() {
   const [marketplacePage, setMarketplacePage] = useState(1);
   const [marketplacePageSize, setMarketplacePageSize] = useState(PAGE_SIZES[0]);
   const [marketplaceDeleteConfirm, setMarketplaceDeleteConfirm] = useState(null);
+
+  // ── Optimistic state untuk delete ───────────────────────────────────────
+  const [optimisticResiList, optimisticDeleteResi] = useOptimistic(
+    resiList,
+    (current, idToDelete) => current.filter((item) => item.id !== idToDelete)
+  );
+
+  const [optimisticMarketplaceList, optimisticDeleteMarketplace] = useOptimistic(
+    marketplaceResiList,
+    (current, idToDelete) => current.filter((item) => item.id !== idToDelete)
+  );
 
   // ── Helper: commit update ke URL tanpa reload ────────────────────────────
   const updateParams = useCallback(
@@ -181,7 +181,7 @@ function DaftarResiContent() {
   // ── Filter & paginate Resi Internal ─────────────────────────────────────
   const filtered = useMemo(() => {
     const q = urlSearch.trim().toLowerCase();
-    return resiList
+    return optimisticResiList
       .filter((resi) => {
         if (q) {
           const nomor = resi.nomor_resi?.toLowerCase() ?? '';
@@ -199,7 +199,7 @@ function DaftarResiContent() {
         const vb = `${b[sortKey] ?? ''}`;
         return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
       });
-  }, [resiList, urlSearch, statusFilter, marketplaceFilter, dateFrom, dateTo, sortKey, sortDir]);
+  }, [optimisticResiList, urlSearch, statusFilter, marketplaceFilter, dateFrom, dateTo, sortKey, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -208,7 +208,7 @@ function DaftarResiContent() {
   // ── Filter & paginate Resi Marketplace ──────────────────────────────────
   const filteredMarketplace = useMemo(() => {
     const q = urlMpSearch.trim().toLowerCase();
-    return marketplaceResiList
+    return optimisticMarketplaceList
       .filter((resi) => {
         if (q && !(resi.nomor_resi?.toLowerCase() ?? '').includes(q)) return false;
         if (marketplaceStatusFilter && resi.status !== marketplaceStatusFilter) return false;
@@ -221,7 +221,7 @@ function DaftarResiContent() {
         const vb = `${b.created_at ?? ''}`;
         return vb.localeCompare(va);
       });
-  }, [marketplaceResiList, urlMpSearch, marketplaceStatusFilter, marketplaceMarketplaceFilter]);
+  }, [optimisticMarketplaceList, urlMpSearch, marketplaceStatusFilter, marketplaceMarketplaceFilter]);
 
   const marketplaceTotalPages = Math.max(
     1,
@@ -252,38 +252,46 @@ function DaftarResiContent() {
     setMarketplacePage(1);
   };
 
-  // ── Delete handlers ──────────────────────────────────────────────────────
+  // ── Delete handlers (Optimistic UI) ─────────────────────────────────────
   const handleDeleteConfirm = async () => {
     if (!deleteConfirm) return;
+    const idToDelete = deleteConfirm;
+    setDeleteConfirm(null); // tutup dialog segera
+    startTransition(() => {
+      optimisticDeleteResi(idToDelete); // UI langsung update
+    });
     try {
-      const { error } = await deleteResi(deleteConfirm);
+      const { error } = await deleteResi(idToDelete);
       if (error) {
         toast.error('Gagal menghapus resi', { description: error.message });
-        return;
+        // rollback otomatis oleh React saat resiList asli di-render ulang
+      } else {
+        setResiList((cur) => cur.filter((item) => item.id !== idToDelete));
+        toast.success('Resi berhasil dihapus');
       }
-      setResiList((cur) => cur.filter((item) => item.id !== deleteConfirm));
-      toast.success('Resi berhasil dihapus');
     } catch {
       toast.error('Terjadi kesalahan tak terduga');
-    } finally {
-      setDeleteConfirm(null);
     }
   };
 
   const handleMarketplaceDeleteConfirm = async () => {
     if (!marketplaceDeleteConfirm) return;
+    const idToDelete = marketplaceDeleteConfirm;
+    setMarketplaceDeleteConfirm(null); // tutup dialog segera
+    startTransition(() => {
+      optimisticDeleteMarketplace(idToDelete); // UI langsung update
+    });
     try {
-      const { error } = await deleteMarketplaceResi(marketplaceDeleteConfirm);
+      const { error } = await deleteMarketplaceResi(idToDelete);
       if (error) {
         toast.error('Gagal menghapus resi marketplace', { description: error.message });
-        return;
+        // rollback otomatis oleh React saat marketplaceResiList asli di-render ulang
+      } else {
+        setMarketplaceResiList((cur) => cur.filter((item) => item.id !== idToDelete));
+        toast.success('Resi marketplace berhasil dihapus');
       }
-      setMarketplaceResiList((cur) => cur.filter((item) => item.id !== marketplaceDeleteConfirm));
-      toast.success('Resi marketplace berhasil dihapus');
     } catch {
       toast.error('Terjadi kesalahan tak terduga');
-    } finally {
-      setMarketplaceDeleteConfirm(null);
     }
   };
 
@@ -310,8 +318,8 @@ function DaftarResiContent() {
             <span className="font-semibold text-slate-700">
               {filtered.length}
             </span>
-            {filtered.length !== resiList.length && (
-              <span className="text-slate-400"> / {resiList.length}</span>
+            {filtered.length !== optimisticResiList.length && (
+              <span className="text-slate-400"> / {optimisticResiList.length}</span>
             )}
           </div>
           <div className="rounded-xl border border-slate-200 bg-white px-3 py-1.5">
@@ -319,8 +327,8 @@ function DaftarResiContent() {
             <span className="font-semibold text-slate-700">
               {filteredMarketplace.length}
             </span>
-            {filteredMarketplace.length !== marketplaceResiList.length && (
-              <span className="text-slate-400"> / {marketplaceResiList.length}</span>
+            {filteredMarketplace.length !== optimisticMarketplaceList.length && (
+              <span className="text-slate-400"> / {optimisticMarketplaceList.length}</span>
             )}
           </div>
         </div>
@@ -436,9 +444,12 @@ function DaftarResiContent() {
 }
 
 // ─── Export page ─────────────────────────────────────────────────────────────
+// Suspense wrapper tidak diperlukan di sini karena:
+// 1. loading.js di route ini sudah menangani skeleton saat navigasi
+// 2. useSearchParams tetap membutuhkan Suspense boundary sendiri
 export default function DaftarResiPage() {
   return (
-    <Suspense fallback={<PageSkeleton />}>
+    <Suspense>
       <DaftarResiContent />
     </Suspense>
   );

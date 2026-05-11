@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useOptimistic, useRef, startTransition, useState } from 'react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { getResiList, updateResiStatus } from '@/services/resi';
@@ -40,6 +40,13 @@ export const VERIFICATION_CONFIG = {
   },
 };
 
+const CHUNK_SIZE = 10;
+
+/** Yield ke browser agar UI bisa re-render sebelum chunk berikutnya diproses. */
+function yieldToUI() {
+  return new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+}
+
 export default function CekResiPage() {
   const [resiList, setResiList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -52,13 +59,19 @@ export default function CekResiPage() {
   const [manualNomor, setManualNomor] = useState('');
   const [manualMarketplace, setManualMarketplace] = useState('');
   const [manualError, setManualError] = useState('');
-  
+
   const [formState, manualFormAction, isManualPending] = useActionState(addMarketplaceResiAction, {
     success: false,
     error: '',
     data: null,
     fieldErrors: {}
   });
+
+  // ── Optimistic state untuk add marketplace resi ────────────────────────────
+  const [optimisticMarketplaceData, addOptimistic] = useOptimistic(
+    marketplaceData,
+    (current, newItem) => [newItem, ...current]
+  );
 
   const [isDragging, setIsDragging] = useState(false);
   const [csvStatus, setCsvStatus] = useState('idle');
@@ -70,22 +83,22 @@ export default function CekResiPage() {
   const [internalMpFilter, setInternalMpFilter] = useState('all');
 
   const [isComparing, setIsComparing] = useState(false);
+  const [compareProgress, setCompareProgress] = useState(0);
   const [compareError, setCompareError] = useState('');
   const [comparisonResults, setComparisonResults] = useState(null);
   const [resultFilter, setResultFilter] = useState('all');
+  const [resultPage, setResultPage] = useState(1);
 
+  // ── Data loading ───────────────────────────────────────────────────────────
   useEffect(() => {
     let active = true;
 
     const loadResi = async () => {
       setLoading(true);
       setLoadError('');
-
       try {
         const { data, error } = await getResiList();
-
         if (!active) return;
-
         if (error) {
           setLoadError('Gagal memuat data resi.');
           setResiList([]);
@@ -93,7 +106,7 @@ export default function CekResiPage() {
         } else {
           setResiList(Array.isArray(data) ? data : []);
         }
-      } catch (err) {
+      } catch {
         if (!active) return;
         setLoadError('Terjadi kesalahan saat memuat data.');
         setResiList([]);
@@ -106,12 +119,9 @@ export default function CekResiPage() {
     const loadMarketplace = async () => {
       setMarketplaceLoading(true);
       setMarketplaceError('');
-
       try {
         const { data, error } = await getMarketplaceResiList();
-
         if (!active) return;
-
         if (error) {
           setMarketplaceError('Gagal memuat data marketplace.');
           setMarketplaceData([]);
@@ -119,7 +129,7 @@ export default function CekResiPage() {
         } else {
           setMarketplaceData(Array.isArray(data) ? data : []);
         }
-      } catch (err) {
+      } catch {
         if (!active) return;
         setMarketplaceError('Terjadi kesalahan saat memuat marketplace.');
         setMarketplaceData([]);
@@ -132,17 +142,16 @@ export default function CekResiPage() {
     loadResi();
     loadMarketplace();
 
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
     if (formState?.success && formState.data) {
       setTimeout(() => {
         setMarketplaceData((prev) => {
-          if (prev.some((item) => item.id === formState.data.id)) return prev;
-          return [formState.data, ...prev];
+          const withoutTemp = prev.filter((item) => !String(item.id).startsWith('temp-'));
+          if (withoutTemp.some((item) => item.id === formState.data.id)) return withoutTemp;
+          return [formState.data, ...withoutTemp];
         });
         setManualNomor('');
         setComparisonResults(null);
@@ -159,10 +168,8 @@ export default function CekResiPage() {
   const refreshResiList = async () => {
     setLoading(true);
     setLoadError('');
-
     try {
       const { data, error } = await getResiList();
-
       if (error) {
         setLoadError('Gagal memuat data resi.');
         setResiList([]);
@@ -170,7 +177,7 @@ export default function CekResiPage() {
       } else {
         setResiList(Array.isArray(data) ? data : []);
       }
-    } catch (err) {
+    } catch {
       setLoadError('Terjadi kesalahan saat memuat data.');
       setResiList([]);
       toast.error('Terjadi kesalahan tak terduga');
@@ -182,10 +189,8 @@ export default function CekResiPage() {
   const refreshMarketplaceList = async () => {
     setMarketplaceLoading(true);
     setMarketplaceError('');
-
     try {
       const { data, error } = await getMarketplaceResiList();
-
       if (error) {
         setMarketplaceError('Gagal memuat data marketplace.');
         setMarketplaceData([]);
@@ -193,7 +198,7 @@ export default function CekResiPage() {
       } else {
         setMarketplaceData(Array.isArray(data) ? data : []);
       }
-    } catch (err) {
+    } catch {
       setMarketplaceError('Terjadi kesalahan saat memuat marketplace.');
       setMarketplaceData([]);
       toast.error('Terjadi kesalahan tak terduga');
@@ -202,20 +207,22 @@ export default function CekResiPage() {
     }
   };
 
+  // ── Derived / computed ─────────────────────────────────────────────────────
+
+  /** Resi internal dengan status 'Diterima' — satu-satunya yang dicocokkan */
+  const eligibleInternal = useMemo(
+    () => resiList.filter((resi) => resi.status === 'Diterima'),
+    [resiList]
+  );
+
   const filteredInternal = useMemo(() => {
     const searchLower = internalSearch.trim().toLowerCase();
-    return resiList.filter((resi) => {
-      if (resi.status === 'Selesai') return false;
+    return eligibleInternal.filter((resi) => {
       const matchSearch = !searchLower || resi.nomor_resi?.toLowerCase().includes(searchLower);
       const matchMp = internalMpFilter === 'all' || resi.marketplace === internalMpFilter;
       return matchSearch && matchMp;
     });
-  }, [resiList, internalSearch, internalMpFilter]);
-
-  const eligibleInternal = useMemo(
-    () => resiList.filter((resi) => resi.status !== 'Selesai'),
-    [resiList]
-  );
+  }, [eligibleInternal, internalSearch, internalMpFilter]);
 
   const canCompare = marketplaceData.length > 0 && eligibleInternal.length > 0;
 
@@ -231,7 +238,15 @@ export default function CekResiPage() {
     return comparisonResults.filter((item) => item.status === resultFilter);
   }, [comparisonResults, resultFilter]);
 
+  // Pagination dari filtered results
+  const RESULTS_PER_PAGE = 10;
+  const totalPages = Math.max(1, Math.ceil(filteredResults.length / RESULTS_PER_PAGE));
+  const pagedResults = useMemo(() => {
+    const start = (resultPage - 1) * RESULTS_PER_PAGE;
+    return filteredResults.slice(start, start + RESULTS_PER_PAGE);
+  }, [filteredResults, resultPage]);
 
+  // ── File / CSV helpers ─────────────────────────────────────────────────────
   const parseCSV = (content) => {
     const lines = content
       .trim()
@@ -295,7 +310,7 @@ export default function CekResiPage() {
 
       setCsvPreview(entries);
       setCsvStatus('success');
-    } catch (err) {
+    } catch {
       setCsvStatus('error');
       setCsvError('Gagal membaca file');
     }
@@ -373,6 +388,7 @@ export default function CekResiPage() {
     URL.revokeObjectURL(link.href);
   };
 
+  // ── handleCompare: async chunking ─────────────────────────────────────────
   const handleCompare = async () => {
     if (!canCompare) {
       setCompareError('Data marketplace dan data internal harus tersedia');
@@ -381,80 +397,99 @@ export default function CekResiPage() {
 
     setCompareError('');
     setIsComparing(true);
-
-    await new Promise((resolve) => setTimeout(resolve, 900));
+    setCompareProgress(0);
+    setComparisonResults([]);   // mulai dari array kosong agar partial results muncul segera
+    setResultFilter('all');
+    setResultPage(1);
 
     const compareTargets = marketplaceData.filter(
       (mp) => (mp.status ?? 'Menunggu') === 'Menunggu'
     );
 
-    const results = compareTargets.map((mp) => {
-      const found = eligibleInternal.find(
-        (resi) => resi.nomor_resi?.toLowerCase() === mp.nomor_resi.toLowerCase()
-      );
+    // Buat lookup Map dari nomor_resi → resi internal (O(1) lookup)
+    const internalMap = new Map(
+      eligibleInternal.map((resi) => [resi.nomor_resi.toLowerCase(), resi])
+    );
 
-      if (!found) {
+    const totalChunks = Math.ceil(compareTargets.length / CHUNK_SIZE);
+    let processedCount = 0;
+    let totalUpdateFailures = 0;
+    let totalDeleteFailures = 0;
+
+    for (let chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {
+      const chunk = compareTargets.slice(chunkIdx * CHUNK_SIZE, (chunkIdx + 1) * CHUNK_SIZE);
+
+      // Yield ke browser sebelum memproses chunk ─ agar progress ter-render
+      await yieldToUI();
+
+      // ── Bandingkan chunk ────────────────────────────────────────────────
+      const chunkResults = chunk.map((mp) => {
+        const found = internalMap.get(mp.nomor_resi.toLowerCase());
+
+        if (!found) {
+          return {
+            marketplace_id: mp.id,
+            nomor_resi: mp.nomor_resi,
+            marketplace_input: mp.marketplace,
+            status: 'tidak_ditemukan',
+          };
+        }
+
+        const mpMatch = found.marketplace?.toLowerCase() === mp.marketplace.toLowerCase();
         return {
           marketplace_id: mp.id,
           nomor_resi: mp.nomor_resi,
           marketplace_input: mp.marketplace,
-          status: 'tidak_ditemukan',
+          internal_resi: found,
+          status: mpMatch ? 'cocok' : 'tidak_cocok',
         };
+      });
+
+      // ── Append hasil partial ke state ───────────────────────────────────
+      setComparisonResults((prev) => [...(prev ?? []), ...chunkResults]);
+
+      processedCount += chunk.length;
+      setCompareProgress(Math.round((processedCount / compareTargets.length) * 100));
+
+      // ── Update status & hapus marketplace resi untuk chunk ini ──────────
+      const matched = chunkResults.filter(
+        (item) => item.status === 'cocok' && item.internal_resi && item.marketplace_id
+      );
+
+      if (matched.length > 0) {
+        const updateCandidates = matched.filter(
+          (item) => item.internal_resi.status !== 'Selesai'
+        );
+
+        // Jalankan update status & delete secara paralel untuk chunk ini
+        const [updateResults, deleteResults] = await Promise.all([
+          Promise.all(
+            updateCandidates.map((item) => updateResiStatus(item.internal_resi.id, 'Selesai'))
+          ),
+          Promise.all(
+            matched.map((item) => deleteMarketplaceResi(item.marketplace_id))
+          ),
+        ]);
+
+        totalUpdateFailures += updateResults.filter((r) => r?.error).length;
+        totalDeleteFailures += deleteResults.filter((r) => r?.error).length;
       }
-
-      const mpMatch = found.marketplace?.toLowerCase() === mp.marketplace.toLowerCase();
-      return {
-        marketplace_id: mp.id,
-        nomor_resi: mp.nomor_resi,
-        marketplace_input: mp.marketplace,
-        internal_resi: found,
-        status: mpMatch ? 'cocok' : 'tidak_cocok',
-      };
-    });
-
-    setComparisonResults(results);
-    setResultFilter('all');
-
-    const matched = results.filter(
-      (item) => item.status === 'cocok' && item.internal_resi && item.marketplace_id
-    );
-
-    if (matched.length > 0) {
-      const updateCandidates = matched.filter((item) => item.internal_resi.status !== 'Selesai');
-      const updateResults = await Promise.all(
-        updateCandidates.map((item) => updateResiStatus(item.internal_resi.id, 'Selesai'))
-      );
-
-      const updatedMarketplaceIds = new Set(
-        updateCandidates
-          .filter((_, index) => !updateResults[index]?.error)
-          .map((item) => item.marketplace_id)
-      );
-
-      const deleteTargets = matched.filter(
-        (item) => item.internal_resi.status === 'Selesai' || updatedMarketplaceIds.has(item.marketplace_id)
-      );
-      const deleteResults = await Promise.all(
-        deleteTargets.map((item) => deleteMarketplaceResi(item.marketplace_id))
-      );
-
-      const updateFailures = updateResults.filter((result) => result?.error).length;
-      const deleteFailures = deleteResults.filter((result) => result?.error).length;
-
-      if (updateFailures > 0) {
-        toast.error('Sebagian status resi gagal diperbarui', {
-          description: `${updateFailures} resi belum diubah ke status selesai.`,
-        });
-      }
-
-      if (deleteFailures > 0) {
-        toast.error('Sebagian data marketplace gagal dihapus', {
-          description: `${deleteFailures} data marketplace masih tersimpan.`,
-        });
-      }
-
-      await Promise.all([refreshResiList(), refreshMarketplaceList()]);
     }
+
+    // ── Error summary ────────────────────────────────────────────────────
+    if (totalUpdateFailures > 0) {
+      toast.error('Sebagian status resi gagal diperbarui', {
+        description: `${totalUpdateFailures} resi belum diubah ke status selesai.`,
+      });
+    }
+    if (totalDeleteFailures > 0) {
+      toast.error('Sebagian data marketplace gagal dihapus', {
+        description: `${totalDeleteFailures} data marketplace masih tersimpan.`,
+      });
+    }
+
+    // ── Refresh data setelah semua chunk selesai ─────────────────────────
+    await Promise.all([refreshResiList(), refreshMarketplaceList()]);
 
     setIsComparing(false);
 
@@ -469,13 +504,12 @@ export default function CekResiPage() {
   const handleReset = async () => {
     try {
       const { error } = await deleteAllMarketplaceResi();
-
       if (error) {
         toast.error('Gagal menghapus data marketplace', { description: error.message });
       } else {
         await refreshMarketplaceList();
       }
-    } catch (err) {
+    } catch {
       toast.error('Terjadi kesalahan tak terduga');
     }
 
@@ -490,21 +524,21 @@ export default function CekResiPage() {
     setInternalMpFilter('all');
     setCompareError('');
     setResultFilter('all');
+    setResultPage(1);
     setIsComparing(false);
+    setCompareProgress(0);
   };
 
   const handleClearMarketplace = async () => {
     try {
       const { error } = await deleteAllMarketplaceResi();
-
       if (error) {
         toast.error('Gagal menghapus data marketplace', { description: error.message });
         return;
       }
-
       await refreshMarketplaceList();
       setComparisonResults(null);
-    } catch (err) {
+    } catch {
       toast.error('Terjadi kesalahan tak terduga');
     }
   };
@@ -512,15 +546,13 @@ export default function CekResiPage() {
   const handleDeleteMarketplace = async (id) => {
     try {
       const { error } = await deleteMarketplaceResi(id);
-
       if (error) {
         toast.error('Gagal menghapus data marketplace', { description: error.message });
         return;
       }
-
       setMarketplaceData((prev) => prev.filter((item) => item.id !== id));
       setComparisonResults(null);
-    } catch (err) {
+    } catch {
       toast.error('Terjadi kesalahan tak terduga');
     }
   };
@@ -555,26 +587,27 @@ export default function CekResiPage() {
     {
       num: 2,
       label: 'Data Internal',
-      done: resiList.length > 0,
-      sub: `${resiList.length} resi tersimpan`,
+      done: eligibleInternal.length > 0,
+      sub: `${eligibleInternal.length} resi (Diterima)`,
     },
     {
       num: 3,
       label: 'Bandingkan',
-      done: Boolean(comparisonResults),
-      sub: comparisonResults ? 'Selesai' : 'Siap diproses',
+      done: Boolean(comparisonResults?.length),
+      sub: isComparing ? `${compareProgress}% selesai` : comparisonResults ? 'Selesai' : 'Siap diproses',
     },
     {
       num: 4,
       label: 'Hasil',
-      done: Boolean(comparisonResults),
+      done: Boolean(comparisonResults?.length) && !isComparing,
       sub: comparisonResults ? `${totalResult} hasil` : 'Menunggu',
     },
   ];
 
   return <CekResiUI
     resiList={resiList} loading={loading} loadError={loadError}
-    marketplaceData={marketplaceData} marketplaceLoading={marketplaceLoading} marketplaceError={marketplaceError}
+    eligibleInternal={eligibleInternal}
+    marketplaceData={optimisticMarketplaceData} marketplaceLoading={marketplaceLoading} marketplaceError={marketplaceError}
     inputTab={inputTab} setInputTab={setInputTab}
     manualNomor={manualNomor} setManualNomor={setManualNomor}
     manualMarketplace={manualMarketplace} setManualMarketplace={setManualMarketplace}
@@ -583,11 +616,29 @@ export default function CekResiPage() {
     csvStatus={csvStatus} csvError={csvError} csvPreview={csvPreview} fileInputRef={fileInputRef}
     internalSearch={internalSearch} setInternalSearch={setInternalSearch}
     internalMpFilter={internalMpFilter} setInternalMpFilter={setInternalMpFilter}
-    isComparing={isComparing} compareError={compareError} comparisonResults={comparisonResults}
-    resultFilter={resultFilter} setResultFilter={setResultFilter}
-    filteredInternal={filteredInternal} canCompare={canCompare} cocokCount={cocokCount} tidakCocokCount={tidakCocokCount} tidakDitemukanCount={tidakDitemukanCount} totalResult={totalResult} matchRate={matchRate} filteredResults={filteredResults} steps={steps}
-    processFile={processFile} handleDrop={handleDrop} handleImportCSV={handleImportCSV} downloadTemplate={downloadTemplate} handleCompare={handleCompare} handleReset={handleReset} downloadResults={downloadResults}
+    isComparing={isComparing} compareProgress={compareProgress}
+    compareError={compareError} comparisonResults={comparisonResults}
+    resultFilter={resultFilter} setResultFilter={(f) => { setResultFilter(f); setResultPage(1); }}
+    resultPage={resultPage} setResultPage={setResultPage} totalPages={totalPages} pagedResults={pagedResults}
+    filteredInternal={filteredInternal} canCompare={canCompare}
+    cocokCount={cocokCount} tidakCocokCount={tidakCocokCount} tidakDitemukanCount={tidakDitemukanCount}
+    totalResult={totalResult} matchRate={matchRate} filteredResults={filteredResults} steps={steps}
+    processFile={processFile} handleDrop={handleDrop} handleImportCSV={handleImportCSV}
+    downloadTemplate={downloadTemplate} handleCompare={handleCompare}
+    handleReset={handleReset} downloadResults={downloadResults}
     onClearMarketplace={handleClearMarketplace} onDeleteMarketplace={handleDeleteMarketplace}
     manualFormAction={manualFormAction} isManualPending={isManualPending} formState={formState}
+    onManualFormSubmit={(nomor, marketplace) => {
+      if (!nomor.trim() || !marketplace) return;
+      startTransition(() => {
+        addOptimistic({
+          id: `temp-${Date.now()}`,
+          nomor_resi: nomor.toUpperCase().trim(),
+          marketplace,
+          created_at: new Date().toISOString(),
+          updated_at: null,
+        });
+      });
+    }}
   />;
 }
