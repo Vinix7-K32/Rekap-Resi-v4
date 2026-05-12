@@ -60,3 +60,44 @@ export async function tambahResiAction(previousState, formData) {
     return { error: "Gagal menyimpan resi.", success: false };
   }
 }
+
+/**
+ * Server Action untuk alur scanner.
+ * Menerima nomor_resi (string) — marketplace, kurir, tanggal default ke nilai generik.
+ * Status selalu "Diterima".
+ * Mengembalikan { duplicate: true, nomor_resi } jika P2002 agar page.js
+ * bisa menampilkan item di tabel error sementara.
+ */
+export async function tambahResiByScanner(nomor_resi) {
+  const trimmed = String(nomor_resi ?? "").trim().toUpperCase();
+
+  if (trimmed.length < 6) {
+    return { success: false, error: "Nomor resi minimal 6 karakter." };
+  }
+
+  const user = await getUser();
+  if (!user) {
+    return { success: false, error: "Unauthorized." };
+  }
+
+  try {
+    const created = await prisma.resi.create({
+      data: {
+        user_id: user.sub,
+        nomor_resi: trimmed,
+        marketplace: "-",
+        kurir: "-",
+        status: "Diterima",
+        tanggal: new Date(),
+        nama_penerima: null,
+      },
+    });
+
+    return { success: true, data: created };
+  } catch (error) {
+    if (error?.code === "P2002") {
+      return { success: false, duplicate: true, nomor_resi: trimmed };
+    }
+    return { success: false, error: "Gagal menyimpan resi." };
+  }
+}

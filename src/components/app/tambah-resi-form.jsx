@@ -1,7 +1,8 @@
 'use client';
 
-import { useActionState, useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,31 +13,47 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-
-import { tambahResiAction } from '@/app/(app)/tambah-resi/actions';
 import { MdErrorOutline, MdRefresh, MdSaveAlt } from 'react-icons/md';
 
 const MARKETPLACES = ['Shopee', 'Tokopedia', 'Lazada', 'Bukalapak', 'TikTok Shop'];
 const KURIR = ['JNE', 'J&T', 'SiCepat', 'Anteraja', 'Pos Indonesia'];
 const FIXED_STATUS = 'Diterima';
 
-export default function TambahResiForm() {
-  const [formState, formAction, isPending] = useActionState(tambahResiAction, {
-    success: false,
-    error: "",
-    message: "",
-    fieldErrors: {},
-  });
-
+/**
+ * TambahResiForm — form input manual resi.
+ *
+ * Props (semua dari page.js via tambah-resi-ui.jsx):
+ *   formState   — state dari useActionState
+ *   formAction  — action dari useActionState
+ *   isPending   — boolean
+ *   defaultNomorResi — string, diisi saat user klik "Tambah Manual" dari tabel error scanner
+ */
+export default function TambahResiForm({
+  formState,
+  formAction,
+  isPending,
+  defaultNomorResi = '',
+}) {
   const formRef = useRef(null);
+  const nomorResiRef = useRef(null);
 
   const [marketplace, setMarketplace] = useState('');
   const [kurir, setKurir] = useState('');
+  const [nomorResi, setNomorResi] = useState(defaultNomorResi);
+
+  // Saat defaultNomorResi berubah (dari tabel error scanner), isi field dan fokus
+  useEffect(() => {
+    if (defaultNomorResi) {
+      setNomorResi(defaultNomorResi);
+      setTimeout(() => nomorResiRef.current?.focus(), 80);
+    }
+  }, [defaultNomorResi]);
 
   const handleReset = () => {
     formRef.current?.reset();
     setMarketplace('');
     setKurir('');
+    setNomorResi('');
   };
 
   useEffect(() => {
@@ -50,6 +67,7 @@ export default function TambahResiForm() {
         description: formState.error,
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formState]);
 
   const fieldClass = (hasError) =>
@@ -67,11 +85,16 @@ export default function TambahResiForm() {
           <Label htmlFor="nomor_resi" className="text-slate-700 font-semibold text-[0.85rem]">
             Nomor Resi <span className="text-red-500">*</span>
           </Label>
-          <Input
+          {/* Gunakan native input agar bisa memakai ref + controlled value */}
+          <input
+            ref={nomorResiRef}
             id="nomor_resi"
             name="nomor_resi"
+            type="text"
+            value={nomorResi}
+            onChange={(e) => setNomorResi(e.target.value.toUpperCase())}
             placeholder="Contoh: JNE000000000001"
-            className={fieldClass(!!formState?.fieldErrors?.nomor_resi)}
+            className={cn(fieldClass(!!formState?.fieldErrors?.nomor_resi))}
             style={{ fontFamily: 'monospace' }}
           />
           <AnimatePresence>

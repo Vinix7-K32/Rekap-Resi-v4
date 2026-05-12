@@ -1,19 +1,16 @@
 export default function Loading() {
   return (
-    <div className="mx-auto max-w-3xl space-y-6 animate-pulse">
+    <div className="space-y-6 animate-pulse">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-1">
-        <div className="h-9 w-9 rounded-xl bg-slate-200 shrink-0" />
-        <div className="space-y-2">
-          <div className="h-6 w-40 rounded-xl bg-slate-200" />
-          <div className="h-3.5 w-64 rounded-lg bg-slate-100" />
-        </div>
+      <div className="space-y-2">
+        <div className="h-7 w-48 rounded-xl bg-slate-200" />
+        <div className="h-4 w-80 rounded-lg bg-slate-100" />
       </div>
 
       {/* Tab selector */}
-      <div className="flex rounded-2xl p-1.5 gap-1 border border-slate-200 bg-white">
-        <div className="flex-1 h-11 rounded-xl bg-slate-200" />
-        <div className="flex-1 h-11 rounded-xl bg-slate-100" />
+      <div className="flex h-10 rounded-xl gap-1 bg-slate-100 px-1">
+        <div className="flex-1 my-1 rounded-lg bg-slate-200" />
+        <div className="flex-1 my-1 rounded-lg bg-slate-100" />
       </div>
 
       {/* Form card */}
