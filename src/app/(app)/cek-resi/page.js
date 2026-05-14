@@ -13,8 +13,15 @@ import {
 import { CekResiUI } from '@/components/app/cek-resi-ui';
 import { useActionState } from 'react';
 import { addMarketplaceResiAction } from './actions';
+import { parseCsvRows, stringifyCsv } from '@/lib/csv';
+import {
+  MARKETPLACES,
+  isAllowedMarketplace,
+  isValidNomorResi,
+  normalizeNomorResi,
+} from '@/lib/resi-validation';
 
-export const MARKETPLACES = ['Shopee', 'Tokopedia', 'Lazada', 'Bukalapak', 'TikTok Shop'];
+export { MARKETPLACES };
 
 export const VERIFICATION_CONFIG = {
   cocok: {
@@ -41,6 +48,7 @@ export const VERIFICATION_CONFIG = {
 };
 
 const CHUNK_SIZE = 10;
+const MAX_CSV_ROWS = 100;
 
 /** Yield ke browser agar UI bisa re-render sebelum chunk berikutnya diproses. */
 function yieldToUI() {
@@ -248,34 +256,51 @@ export default function CekResiPage() {
 
   // ── File / CSV helpers ─────────────────────────────────────────────────────
   const parseCSV = (content) => {
-    const lines = content
-      .trim()
-      .split(/\r?\n/)
-      .filter((line) => line.trim());
+    const { rows, error: parseError } = parseCsvRows(content);
 
-    if (!lines.length) return { entries: [], error: 'File CSV kosong' };
+    if (parseError) return { entries: [], error: parseError };
 
-    const firstLower = lines[0].toLowerCase();
+    const nonEmptyRows = rows
+      .map((row) => row.map((col) => col.trim()))
+      .filter((row) => row.some(Boolean));
+
+    if (!nonEmptyRows.length) return { entries: [], error: 'File CSV kosong' };
+
+    const firstLower = nonEmptyRows[0].join(',').toLowerCase();
     const hasHeader =
       firstLower.includes('nomor') || firstLower.includes('resi') || firstLower.includes('marketplace');
-    const dataLines = hasHeader ? lines.slice(1) : lines;
+    const dataRows = hasHeader ? nonEmptyRows.slice(1) : nonEmptyRows;
 
-    if (!dataLines.length) return { entries: [], error: 'Tidak ada data setelah header' };
+    if (!dataRows.length) return { entries: [], error: 'Tidak ada data setelah header' };
+
+    if (dataRows.length > MAX_CSV_ROWS) {
+      return { entries: [], error: `Maksimal ${MAX_CSV_ROWS} baris CSV per import` };
+    }
 
     const entries = [];
-    dataLines.forEach((line, index) => {
-      const cols = line
-        .split(',')
-        .map((col) => col.trim().replace(/^"|"$/g, ''));
+    const invalidRows = [];
 
-      if (cols.length >= 2 && cols[0]) {
+    dataRows.forEach((cols, index) => {
+      const rowNumber = hasHeader ? index + 2 : index + 1;
+      const nomorResi = normalizeNomorResi(cols[0]);
+      const marketplace = cols[1]?.trim() ?? '';
+
+      if (isValidNomorResi(nomorResi) && isAllowedMarketplace(marketplace)) {
         entries.push({
           id: `csv-${Date.now()}-${index}`,
-          nomor_resi: cols[0].toUpperCase(),
-          marketplace: cols[1],
+          nomor_resi: nomorResi,
+          marketplace,
         });
+      } else {
+        invalidRows.push(rowNumber);
       }
     });
+
+    if (invalidRows.length) {
+      const sample = invalidRows.slice(0, 5).join(', ');
+      const suffix = invalidRows.length > 5 ? ', ...' : '';
+      return { entries: [], error: `Baris CSV tidak valid: ${sample}${suffix}` };
+    }
 
     if (!entries.length) return { entries: [], error: 'Tidak ada baris data valid' };
     return { entries };
@@ -336,8 +361,8 @@ export default function CekResiPage() {
     const entries = [];
 
     csvPreview.forEach((item) => {
-      const normalized = item.nomor_resi?.toUpperCase();
-      if (!normalized) return;
+      const normalized = normalizeNomorResi(item.nomor_resi);
+      if (!isValidNomorResi(normalized) || !isAllowedMarketplace(item.marketplace)) return;
       if (existing.has(normalized) || seen.has(normalized)) return;
       seen.add(normalized);
       entries.push({ nomor_resi: normalized, marketplace: item.marketplace });
@@ -374,10 +399,14 @@ export default function CekResiPage() {
   };
 
   const downloadTemplate = () => {
+    const csv = stringifyCsv([
+      ['Nomor Resi', 'Marketplace'],
+      ['JNE000000000001', 'Shopee'],
+      ['JP000000000002', 'Tokopedia'],
+      ['SPXID000000000003', 'Lazada'],
+    ]);
     const blob = new Blob(
-      [
-        'Nomor Resi,Marketplace\nJNE000000000001,Shopee\nJP000000000002,Tokopedia\nSPXID000000000003,Lazada',
-      ],
+      [csv],
       { type: 'text/csv' }
     );
     const link = Object.assign(document.createElement('a'), {
@@ -560,15 +589,21 @@ export default function CekResiPage() {
   const downloadResults = () => {
     if (!comparisonResults) return;
 
-    const header = 'Nomor Resi,Marketplace Input,Kurir Internal,Status Resi,Status Verifikasi\n';
-    const rows = comparisonResults.map((item) => {
+    const rows = [
+      ['Nomor Resi', 'Marketplace Input', 'Kurir Internal', 'Status Resi', 'Status Verifikasi'],
+      ...comparisonResults.map((item) => {
       const label = VERIFICATION_CONFIG[item.status].label;
-      return `${item.nomor_resi},${item.marketplace_input},${item.internal_resi?.kurir ?? '-'},${
-        item.internal_resi?.status ?? '-'
-      },${label}`;
-    });
+        return [
+          item.nomor_resi,
+          item.marketplace_input,
+          item.internal_resi?.kurir ?? '-',
+          item.internal_resi?.status ?? '-',
+          label,
+        ];
+      }),
+    ];
 
-    const blob = new Blob([header + rows.join('\n')], { type: 'text/csv' });
+    const blob = new Blob([stringifyCsv(rows)], { type: 'text/csv' });
     const link = Object.assign(document.createElement('a'), {
       href: URL.createObjectURL(blob),
       download: `verifikasi-resi-${format(new Date(), 'yyyy-MM-dd')}.csv`,

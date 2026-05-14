@@ -47,9 +47,13 @@ export default function TambahResiPage() {
   // Saat form manual berhasil submit, hapus nomor resi dari tabel error (jika ada)
   useEffect(() => {
     if (formState?.success && formState.data?.nomor_resi) {
-      const submitted = formState.data.nomor_resi;
-      setErrorList((prev) => prev.filter((item) => item.nomor_resi !== submitted));
-      setDefaultNomorResi('');
+      const timeoutId = setTimeout(() => {
+        const submitted = formState.data.nomor_resi;
+        setErrorList((prev) => prev.filter((item) => item.nomor_resi !== submitted));
+        setDefaultNomorResi('');
+      }, 0);
+
+      return () => clearTimeout(timeoutId);
     }
   }, [formState]);
 

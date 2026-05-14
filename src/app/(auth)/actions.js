@@ -3,6 +3,17 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/server";
+import {
+  INVALID_ORIGIN_MESSAGE,
+  getTrustedRedirectUrl,
+  isSameOriginRequest,
+} from "@/lib/request-guards";
+import {
+  AUTH_RATE_LIMIT,
+  RATE_LIMIT_MESSAGE,
+  checkRateLimit,
+  getClientIp,
+} from "@/lib/rate-limit";
 import { z } from "zod";
 
 const loginSchema = z.object({
@@ -22,6 +33,11 @@ const registerSchema = z.object({
 
 export async function loginAction(previousState, formData) {
   void previousState;
+
+  const headerStore = await headers();
+  if (!isSameOriginRequest(headerStore)) {
+    return { error: INVALID_ORIGIN_MESSAGE };
+  }
   
   const parsed = loginSchema.safeParse(Object.fromEntries(formData));
   
@@ -30,6 +46,14 @@ export async function loginAction(previousState, formData) {
   }
   
   const { email, password } = parsed.data;
+  const rateLimit = checkRateLimit(
+    `auth:login:${getClientIp(headerStore)}:${email.toLowerCase()}`,
+    AUTH_RATE_LIMIT
+  );
+
+  if (!rateLimit.ok) {
+    return { error: RATE_LIMIT_MESSAGE };
+  }
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -43,6 +67,11 @@ export async function loginAction(previousState, formData) {
 
 export async function registerAction(previousState, formData) {
   void previousState;
+
+  const headerStore = await headers();
+  if (!isSameOriginRequest(headerStore)) {
+    return { error: INVALID_ORIGIN_MESSAGE };
+  }
   
   const parsed = registerSchema.safeParse(Object.fromEntries(formData));
   
@@ -51,16 +80,23 @@ export async function registerAction(previousState, formData) {
   }
 
   const { name, email, password } = parsed.data;
+  const rateLimit = checkRateLimit(
+    `auth:register:${getClientIp(headerStore)}:${email.toLowerCase()}`,
+    AUTH_RATE_LIMIT
+  );
 
-  const headerStore = await headers();
-  const origin = headerStore.get("origin");
+  if (!rateLimit.ok) {
+    return { error: RATE_LIMIT_MESSAGE };
+  }
+
+  const emailRedirectTo = getTrustedRedirectUrl(headerStore, "/login");
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      emailRedirectTo: origin ? `${origin}/login` : undefined,
+      emailRedirectTo,
       data: name ? { name } : undefined,
     },
   });
@@ -73,6 +109,11 @@ export async function registerAction(previousState, formData) {
 }
 
 export async function logoutAction() {
+  const headerStore = await headers();
+  if (!isSameOriginRequest(headerStore)) {
+    redirect("/login");
+  }
+
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/login");

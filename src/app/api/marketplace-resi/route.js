@@ -1,12 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getUser } from '@/lib/auth';
-
-const serializeMarketplaceResi = (resi) => ({
-  ...resi,
-  created_at: resi.created_at ? resi.created_at.toISOString() : null,
-  updated_at: resi.updated_at ? resi.updated_at.toISOString() : null,
-});
+import { INVALID_ORIGIN_MESSAGE, isSameOriginRequest } from '@/lib/request-guards';
+import { serializeMarketplaceResi } from '@/lib/resi-serializers';
 
 export async function GET() {
   const user = await getUser();
@@ -31,7 +27,11 @@ export async function GET() {
 
 
 
-export async function DELETE() {
+export async function DELETE(request) {
+  if (!isSameOriginRequest(request.headers)) {
+    return NextResponse.json({ error: { message: INVALID_ORIGIN_MESSAGE } }, { status: 403 });
+  }
+
   const user = await getUser();
   if (!user) {
     return NextResponse.json({ error: { message: 'Unauthorized.' } }, { status: 401 });

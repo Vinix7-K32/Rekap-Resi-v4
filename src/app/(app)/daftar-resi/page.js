@@ -101,14 +101,22 @@ function DaftarResiContent() {
 
   // ── Sync debounced search → URL ──────────────────────────────────────────
   useEffect(() => {
-    updateParams({ q: debouncedSearch });
-    setPage(1);
+    const timeoutId = setTimeout(() => {
+      updateParams({ q: debouncedSearch });
+      setPage(1);
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch]);
 
   useEffect(() => {
-    updateParams({ mpq: debouncedMpSearch });
-    setMarketplacePage(1);
+    const timeoutId = setTimeout(() => {
+      updateParams({ mpq: debouncedMpSearch });
+      setMarketplacePage(1);
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedMpSearch]);
 

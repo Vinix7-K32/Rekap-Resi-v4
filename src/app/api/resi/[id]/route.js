@@ -1,17 +1,16 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getUser } from '@/lib/auth';
+import { INVALID_ORIGIN_MESSAGE, isSameOriginRequest } from '@/lib/request-guards';
+import { serializeResi } from '@/lib/resi-serializers';
 
 const VALID_STATUSES = new Set(['Menunggu', 'Diterima', 'Selesai']);
 
-const serializeResi = (resi) => ({
-  ...resi,
-  tanggal: resi.tanggal ? resi.tanggal.toISOString().split('T')[0] : null,
-  created_at: resi.created_at ? resi.created_at.toISOString() : null,
-  updated_at: resi.updated_at ? resi.updated_at.toISOString() : null,
-});
-
 export async function DELETE(request, { params }) {
+  if (!isSameOriginRequest(request.headers)) {
+    return NextResponse.json({ error: { message: INVALID_ORIGIN_MESSAGE } }, { status: 403 });
+  }
+
   const user = await getUser();
   if (!user) {
     return NextResponse.json({ error: { message: 'Unauthorized.' } }, { status: 401 });
@@ -48,6 +47,10 @@ export async function DELETE(request, { params }) {
 }
 
 export async function PATCH(request, { params }) {
+  if (!isSameOriginRequest(request.headers)) {
+    return NextResponse.json({ error: { message: INVALID_ORIGIN_MESSAGE } }, { status: 403 });
+  }
+
   const user = await getUser();
   if (!user) {
     return NextResponse.json({ error: { message: 'Unauthorized.' } }, { status: 401 });

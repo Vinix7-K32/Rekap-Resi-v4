@@ -44,8 +44,17 @@ export default function TambahResiForm({
   // Saat defaultNomorResi berubah (dari tabel error scanner), isi field dan fokus
   useEffect(() => {
     if (defaultNomorResi) {
-      setNomorResi(defaultNomorResi);
-      setTimeout(() => nomorResiRef.current?.focus(), 80);
+      const fillTimeoutId = setTimeout(() => {
+        setNomorResi(defaultNomorResi);
+      }, 0);
+      const focusTimeoutId = setTimeout(() => {
+        nomorResiRef.current?.focus();
+      }, 80);
+
+      return () => {
+        clearTimeout(fillTimeoutId);
+        clearTimeout(focusTimeoutId);
+      };
     }
   }, [defaultNomorResi]);
 
@@ -67,7 +76,6 @@ export default function TambahResiForm({
         description: formState.error,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formState]);
 
   const fieldClass = (hasError) =>

@@ -1,15 +1,9 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getUser } from '@/lib/auth';
+import { serializeResi } from '@/lib/resi-serializers';
 
 const VALID_STATUSES = new Set(['Menunggu', 'Diterima', 'Selesai']);
-
-const serializeResi = (resi) => ({
-  ...resi,
-  tanggal: resi.tanggal ? resi.tanggal.toISOString().split('T')[0] : null,
-  created_at: resi.created_at ? resi.created_at.toISOString() : null,
-  updated_at: resi.updated_at ? resi.updated_at.toISOString() : null,
-});
 
 export async function GET() {
   const user = await getUser();
@@ -31,4 +25,3 @@ export async function GET() {
     );
   }
 }
-
