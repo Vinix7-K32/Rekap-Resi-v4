@@ -42,6 +42,8 @@ export const config = {
     "/cek-resi/:path*",
     "/daftar-resi/:path*",
     "/tambah-resi/:path*",
+    "/profile/:path*",
+    "/settings/:path*",
     "/api/:path*",
   ],
 };

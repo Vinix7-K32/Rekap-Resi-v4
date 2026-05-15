@@ -44,3 +44,4 @@ next-env.d.ts
 p*.md
 /prisma/seed*.js
 .github
+docs

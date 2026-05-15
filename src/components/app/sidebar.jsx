@@ -11,7 +11,6 @@ import {
   PackagePlus,
   ArrowLeftRight,
   ClipboardList,
-  Bell,
   ChevronLeft,
   ChevronRight,
   Menu,
@@ -35,13 +34,14 @@ const pageTitles = {
   '/tambah-resi': 'Tambah Resi',
   '/cek-resi': 'Check Resi',
   '/daftar-resi': 'Daftar Resi',
+  '/profile': 'Profile',
+  '/settings': 'Settings',
 };
 
 export default function Sidebar({ children, user }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [notifOpen, setNotifOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const pathname = usePathname();
@@ -64,16 +64,7 @@ export default function Sidebar({ children, user }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMobileOpen(false);
     setProfileOpen(false);
-    setNotifOpen(false);
   }, [pathname]);
-
-  const notifications = [
-    { id: 1, text: '5 resi baru berhasil ditambahkan', time: '2 menit lalu', unread: true },
-    { id: 2, text: 'Resi JP000000000003 berubah status ke Diterima', time: '15 menit lalu', unread: true },
-    { id: 3, text: 'Sinkronisasi Shopee selesai: 23 resi diperbarui', time: '1 jam lalu', unread: false },
-    { id: 4, text: 'Laporan bulanan siap diunduh', time: '3 jam lalu', unread: false },
-  ];
-  const unreadCount = notifications.filter(n => n.unread).length;
 
   const renderSidebarContent = () => (
     <div className="flex flex-col h-full">
@@ -164,7 +155,7 @@ export default function Sidebar({ children, user }) {
   );
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#F1F5F9' }}>
+    <div className="flex h-screen overflow-hidden bg-[#F1F5F9] dark:bg-background">
       {/* Desktop Sidebar */}
       <aside
         className="hidden md:flex flex-col shrink-0 transition-all duration-300 relative"
@@ -177,6 +168,8 @@ export default function Sidebar({ children, user }) {
         {/* Collapse Toggle */}
         <button
           onClick={() => setSidebarOpen(prev => !prev)}
+          aria-label={sidebarOpen ? 'Tutup sidebar' : 'Buka sidebar'}
+          aria-expanded={sidebarOpen}
           className="absolute -right-3 top-20 w-6 h-6 rounded-full flex items-center justify-center z-10 transition-all hover:scale-110"
           style={{ background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)', boxShadow: '0 2px 8px rgba(59,130,246,0.4)' }}
         >
@@ -194,6 +187,7 @@ export default function Sidebar({ children, user }) {
           >
             <div className="absolute top-4 right-4">
               <button onClick={() => setMobileOpen(false)} className="text-slate-400 hover:text-white">
+                <span className="sr-only">Tutup menu</span>
                 <X size={20} />
               </button>
             </div>
@@ -206,84 +200,36 @@ export default function Sidebar({ children, user }) {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Navbar */}
         <header
-          className="h-16 flex items-center px-6 gap-4 shrink-0 border-b"
-          style={{ backgroundColor: '#ffffff', borderColor: '#E2E8F0' }}
+          className="h-16 flex items-center px-6 gap-4 shrink-0 border-b border-slate-200 bg-white dark:border-border dark:bg-card"
         >
           {/* Mobile Hamburger */}
           <button
-            className="md:hidden text-slate-500 hover:text-slate-900 transition-colors"
+            className="md:hidden text-slate-500 hover:text-slate-900 transition-colors dark:text-muted-foreground dark:hover:text-foreground"
             onClick={() => setMobileOpen(true)}
+            aria-label="Buka menu"
+            aria-expanded={mobileOpen}
           >
             <Menu size={22} />
           </button>
 
           {/* Page Title */}
           <div className="flex-1 min-w-0">
-            <h1 className="text-slate-800 truncate" style={{ fontSize: '1.1rem', fontWeight: 600 }}>{pageTitle}</h1>
-            <p className="text-slate-400 hidden sm:block" style={{ fontSize: '0.75rem' }}>
+            <h1 className="text-slate-800 truncate dark:text-foreground" style={{ fontSize: '1.1rem', fontWeight: 600 }}>{pageTitle}</h1>
+            <p className="text-slate-400 hidden sm:block dark:text-muted-foreground" style={{ fontSize: '0.75rem' }}>
               {format(new Date(), 'EEEE, dd MMMM yyyy')}
             </p>
           </div>
 
           {/* Right Actions */}
           <div className="flex items-center gap-3">
-            {/* Notifications */}
-            <div className="relative">
-              <button
-                onClick={() => { setNotifOpen(prev => !prev); setProfileOpen(false); }}
-                className="relative w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:bg-slate-100 text-slate-500 hover:text-slate-800"
-              >
-                <Bell size={18} />
-                {unreadCount > 0 && (
-                  <span
-                    className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
-                    style={{ backgroundColor: '#EF4444' }}
-                  />
-                )}
-              </button>
-              {notifOpen && (
-                <div
-                  className="absolute right-0 top-12 w-80 rounded-2xl overflow-hidden z-50"
-                  style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.15)', border: '1px solid #E2E8F0', backgroundColor: '#fff' }}
-                >
-                  <div className="px-5 py-4 border-b" style={{ borderColor: '#F1F5F9' }}>
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-slate-800" style={{ fontSize: '0.9rem' }}>Notifikasi</span>
-                      <span
-                        className="text-xs px-2 py-0.5 rounded-full text-white"
-                        style={{ backgroundColor: '#EF4444', fontSize: '0.72rem' }}
-                      >
-                        {unreadCount} baru
-                      </span>
-                    </div>
-                  </div>
-                  <div className="max-h-72 overflow-y-auto">
-                    {notifications.map(n => (
-                      <div
-                        key={n.id}
-                        className="px-5 py-3.5 border-b last:border-0 cursor-pointer hover:bg-slate-50 transition-colors"
-                        style={{ borderColor: '#F8FAFC' }}
-                      >
-                        <div className="flex gap-3">
-                          {n.unread && <div className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: '#3B82F6' }} />}
-                          {!n.unread && <div className="w-2 h-2 shrink-0" />}
-                          <div>
-                            <p className={`text-slate-700 ${n.unread ? 'font-medium' : ''}`} style={{ fontSize: '0.82rem' }}>{n.text}</p>
-                            <p className="text-slate-400 mt-1" style={{ fontSize: '0.72rem' }}>{n.time}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
             {/* Profile */}
             <div className="relative">
               <button
-                onClick={() => { setProfileOpen(prev => !prev); setNotifOpen(false); }}
-                className="flex items-center gap-2.5 rounded-xl px-3 py-2 transition-all hover:bg-slate-100"
+                onClick={() => setProfileOpen(prev => !prev)}
+                aria-label="Buka menu profil"
+                aria-haspopup="menu"
+                aria-expanded={profileOpen}
+                className="flex items-center gap-2.5 rounded-xl px-3 py-2 transition-all hover:bg-slate-100 dark:hover:bg-muted/50"
               >
                 <div
                   className="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold shrink-0"
@@ -292,35 +238,40 @@ export default function Sidebar({ children, user }) {
                   {initials}
                 </div>
                 <div className="hidden sm:block text-left">
-                  <p className="text-slate-700" style={{ fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.2 }}>{displayName}</p>
-                  <p className="text-slate-400" style={{ fontSize: '0.7rem', lineHeight: 1.2 }}>User</p>
+                  <p className="text-slate-700 dark:text-foreground" style={{ fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.2 }}>{displayName}</p>
+                  <p className="text-slate-400 dark:text-muted-foreground" style={{ fontSize: '0.7rem', lineHeight: 1.2 }}>User</p>
                 </div>
-                <ChevronDown size={14} className="text-slate-400 hidden sm:block" />
+                <ChevronDown size={14} className="text-slate-400 hidden sm:block dark:text-muted-foreground" />
               </button>
               {profileOpen && (
                 <div
-                  className="absolute right-0 top-12 w-52 rounded-2xl overflow-hidden z-50"
-                  style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.15)', border: '1px solid #E2E8F0', backgroundColor: '#fff' }}
+                  className="absolute right-0 top-12 w-52 rounded-2xl overflow-hidden z-50 bg-white dark:bg-popover"
+                  style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.15)', border: '1px solid var(--border)' }}
                 >
-                  <div className="px-4 py-3 border-b" style={{ borderColor: '#F1F5F9' }}>
-                    <p className="text-slate-800 font-semibold" style={{ fontSize: '0.85rem' }}>{displayName}</p>
-                    <p className="text-slate-400" style={{ fontSize: '0.72rem' }}>{displayEmail}</p>
+                  <div className="px-4 py-3 border-b border-slate-100 dark:border-border">
+                    <p className="text-slate-800 font-semibold dark:text-popover-foreground" style={{ fontSize: '0.85rem' }}>{displayName}</p>
+                    <p className="text-slate-400 dark:text-muted-foreground" style={{ fontSize: '0.72rem' }}>{displayEmail}</p>
                   </div>
-                  {[{ icon: User, label: 'Profil Saya' }, { icon: Settings, label: 'Pengaturan' }].map(({ icon: Icon, label }) => (
-                    <button
-                      key={label}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-600 hover:bg-slate-50 transition-colors"
+                  {[
+                    { icon: User, label: 'Profil Saya', href: '/profile' },
+                    { icon: Settings, label: 'Pengaturan', href: '/settings' },
+                  ].map(({ icon: Icon, label, href }) => (
+                    <Link
+                      key={href}
+                      href={href}
+                      onClick={() => setProfileOpen(false)}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-600 hover:bg-slate-50 transition-colors dark:text-muted-foreground dark:hover:bg-muted/50"
                       style={{ fontSize: '0.85rem' }}
                     >
                       <Icon size={15} />
                       {label}
-                    </button>
+                    </Link>
                   ))}
-                  <div className="border-t" style={{ borderColor: '#F1F5F9' }}>
+                  <div className="border-t border-slate-100 dark:border-border">
                     <button
                       onClick={handleLogout}
                       disabled={isPending}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 transition-colors disabled:opacity-60"
+                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 transition-colors disabled:opacity-60 dark:hover:bg-red-950/40"
                       style={{ color: '#EF4444', fontSize: '0.85rem' }}
                     >
                       <LogOut size={15} />
@@ -334,7 +285,7 @@ export default function Sidebar({ children, user }) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto" style={{ backgroundColor: '#F1F5F9' }}>
+        <main className="flex-1 overflow-y-auto bg-[#F1F5F9] dark:bg-background">
           <div className="p-6">
             {children}
           </div>
